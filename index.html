@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Altaïr — L'éclat d'une étoile ambrée · Concept</title>
-  <meta name="description" content="Concept de landing page scrollytelling autour du parfum Altaïr de Parfums de Marly. Projet de portfolio non officiel, entièrement généré en code." />
+  <meta name="description" content="Concept de landing page scrollytelling autour du parfum Altaïr de Parfums de Marly. Projet de portfolio non officiel." />
   <meta name="theme-color" content="#04060c" />
   <meta name="color-scheme" content="dark" />
 
@@ -14,12 +14,14 @@
     (function () {
       var root = document.documentElement;
       root.classList.add('js');
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        root.classList.add('motion');
-        setTimeout(function () {
-          if (!window.__altairReady) root.classList.remove('motion');
-        }, 5000);
-      }
+      try {
+        var c = document.createElement('canvas');
+        if (c.getContext('webgl2') || c.getContext('webgl')) root.classList.add('webgl');
+      } catch (e) {}
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) root.classList.add('motion');
+      setTimeout(function () {
+        if (!window.__altairReady) root.classList.remove('motion', 'webgl');
+      }, 5000);
     })();
   </script>
 
@@ -31,8 +33,7 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js"
       }
     }
   </script>
@@ -45,7 +46,7 @@
 <body>
   <a class="skip-link" href="#main">Aller au contenu</a>
 
-  <!-- Scène 3D plein écran (décorative) -->
+  <!-- Scène WebGL plein écran : photos animées + étoiles (les photos ont aussi un équivalent <img> ci-dessous) -->
   <canvas id="scene" class="scene" aria-hidden="true"></canvas>
 
   <!-- Atmosphère : lueur d'ambiance, vignette, grain -->
@@ -77,6 +78,8 @@
     <!-- 1. HERO -->
     <section id="hero" class="hero" aria-labelledby="hero-title">
       <div class="hero__content">
+        <img class="photo-fallback" src="assets/altair-ambiance.webp" width="1024" height="1024"
+             alt="Le flacon d'Altaïr, laque cuivrée et bouchon doré, dans une lumière chaude et tamisée." />
         <p class="eyebrow" data-hero-fade>Parfums de Marly · Eau de Parfum</p>
         <h1 id="hero-title" class="hero__title">
           <span class="sr-only">Altaïr</span>
@@ -94,7 +97,7 @@
     <section id="etoile" class="panel" aria-labelledby="etoile-title">
       <div class="panel__content">
         <p class="chapter" data-reveal><span>01</span> L'étoile</p>
-        <h2 id="etoile-title" class="display" data-reveal>L'étoile qui brûle <em>trop vite</em> pour dormir.</h2>
+        <h2 id="etoile-title" class="display" data-split>L'étoile qui brûle <em>trop vite</em> pour dormir.</h2>
         <p class="lead" data-reveal>
           Altaïr est l'astre le plus brillant de la constellation de l'Aigle. Elle tourne sur
           elle-même si vite qu'elle s'en trouve aplatie, comme une goutte d'or étirée par la nuit d'été.
@@ -145,14 +148,16 @@
     <section id="notes" class="notes" aria-labelledby="notes-title">
       <header class="notes__intro panel__content">
         <p class="chapter" data-reveal><span>02</span> Les notes</p>
-        <h2 id="notes-title" class="display" data-reveal>Une pyramide <em>en trois lueurs.</em></h2>
+        <h2 id="notes-title" class="display" data-split>Une pyramide <em>en trois lueurs.</em></h2>
         <p data-reveal>Comme une étoile vue à travers l'atmosphère, le parfum change de couleur à mesure qu'il se révèle.</p>
+        <img class="photo-fallback" src="assets/altair-ingredients.webp" width="1080" height="1080" loading="lazy"
+             alt="Le flacon posé sur du bois, entouré de ses ingrédients : résines, bâtons de cannelle, gousses de vanille, copeaux de bois et baies roses." />
       </header>
 
       <article class="note" data-amb="#d27a3e" aria-labelledby="note-tete">
         <div class="note__inner panel__content">
           <p class="note__tier" data-reveal><span class="note__numeral">I</span> Notes de tête</p>
-          <h3 id="note-tete" class="note__title" data-reveal>L'étincelle</h3>
+          <h3 id="note-tete" class="note__title" data-split>L'étincelle</h3>
           <ul class="note__list" data-reveal aria-label="Ingrédients de tête">
             <li>Cannelle</li><li>Cardamome</li><li>Bergamote</li><li>Fleur d'oranger</li>
           </ul>
@@ -163,7 +168,7 @@
       <article class="note" data-amb="#e2b968" aria-labelledby="note-coeur">
         <div class="note__inner panel__content">
           <p class="note__tier" data-reveal><span class="note__numeral">II</span> Notes de cœur</p>
-          <h3 id="note-coeur" class="note__title" data-reveal>L'irradiation</h3>
+          <h3 id="note-coeur" class="note__title" data-split>L'irradiation</h3>
           <ul class="note__list" data-reveal aria-label="Ingrédients de cœur">
             <li>Vanille Bourbon</li><li>Élémi</li>
           </ul>
@@ -174,7 +179,7 @@
       <article class="note" data-amb="#a8482a" aria-labelledby="note-fond">
         <div class="note__inner panel__content">
           <p class="note__tier" data-reveal><span class="note__numeral">III</span> Notes de fond</p>
-          <h3 id="note-fond" class="note__title" data-reveal>La traîne</h3>
+          <h3 id="note-fond" class="note__title" data-split>La traîne</h3>
           <ul class="note__list" data-reveal aria-label="Ingrédients de fond">
             <li>Praliné</li><li>Bois de gaïac</li><li>Ambroxan</li><li>Musc</li>
           </ul>
@@ -188,22 +193,27 @@
     <section id="flacon" class="flacon" aria-labelledby="flacon-title">
       <div class="flacon__inner panel__content">
         <p class="chapter"><span>03</span> Le flacon</p>
-        <h2 id="flacon-title" class="display">Taillé pour <em>capter la lumière.</em></h2>
+        <h2 id="flacon-title" class="display" data-split>Un objet qui <em>retient la lumière.</em></h2>
+        <img class="photo-fallback" src="assets/altair-flacon.webp" width="1080" height="1080" loading="lazy"
+             alt="Gros plan sur le flacon cuivré orné de deux chevaux cabrés en relief, et sur son bouchon triangulaire en métal poli." />
         <div class="flacon__details">
           <div class="flacon__detail">
-            <h3>Le verre</h3>
-            <p>Épais et limpide, il agit comme une lentille : chaque arête réfracte la lumière en reflets ambrés.</p>
+            <h3>La matière</h3>
+            <p>Une laque cuivrée, mate et veloutée, qui absorbe la lumière au lieu de la renvoyer.</p>
           </div>
           <div class="flacon__detail">
-            <h3>Le jus</h3>
-            <p>Un ambre profond qui s'illumine à contre-jour, passant du miel au cuivre selon l'angle.</p>
+            <h3>Le relief</h3>
+            <p>Deux chevaux cabrés, frappés dans la masse, qui ne se révèlent qu'à la lumière rasante.</p>
           </div>
           <div class="flacon__detail">
             <h3>Le bouchon</h3>
-            <p>Lourd, doré, frappé d'une étoile. Le geste final, celui qui scelle la nuit.</p>
+            <p>Triangulaire, en métal poli, gravé à l'intérieur. Il se détache comme une pièce de joaillerie.</p>
           </div>
         </div>
-        <div class="flacon__bar" aria-hidden="true"><span></span></div>
+        <div class="flacon__meta" aria-hidden="true">
+          <p class="flacon__count"><span class="flacon__count-window"><span class="flacon__count-roll"><span>01</span><span>02</span><span>03</span></span></span> / 03</p>
+          <div class="flacon__bar"><span></span></div>
+        </div>
       </div>
     </section>
 
@@ -211,7 +221,7 @@
     <section id="sillage" class="sillage" aria-labelledby="sillage-title">
       <div class="sillage__head panel__content">
         <p class="chapter"><span>04</span> Sillage</p>
-        <h2 id="sillage-title" class="display">Ce qu'il laisse <em>derrière lui.</em></h2>
+        <h2 id="sillage-title" class="display" data-split>Ce qu'il laisse <em>derrière lui.</em></h2>
       </div>
       <div class="sillage__track">
         <figure class="mood">
@@ -249,7 +259,7 @@
     <section id="cta" class="cta" aria-labelledby="cta-title">
       <div class="cta__content">
         <p class="chapter chapter--center" data-reveal><span>05</span> L'invitation</p>
-        <h2 id="cta-title" class="display display--center" data-reveal>Suivez <em>l'étoile.</em></h2>
+        <h2 id="cta-title" class="display display--center" data-split>Suivez <em>l'étoile.</em></h2>
         <p class="cta__text" data-reveal>Une eau de parfum ambrée, épicée et vanillée, pour les nuits qui commencent tard.</p>
         <div class="magnetic" data-reveal>
           <a class="btn-glow" href="#notes">
@@ -266,7 +276,7 @@
       Concept de portfolio non officiel, sans affiliation avec Parfums de Marly.
       Altaïr et Parfums de Marly sont des marques de leurs propriétaires respectifs.
     </p>
-    <p>Flacon, lumières et animations entièrement générés en code · Three.js, GSAP, Lenis.</p>
+    <p>Photographies du produit : droits réservés à leurs auteurs. Animations et effets réalisés en code avec Three.js, GSAP et Lenis.</p>
   </footer>
 </body>
 </html>

@@ -262,6 +262,7 @@ main { position: relative; z-index: 2; }
    --------------------------------------------------------- */
 .hero {
   position: relative;
+  overflow-x: clip;
   min-height: 100vh;
   min-height: 100svh;
   display: flex;
@@ -362,9 +363,9 @@ main { position: relative; z-index: 2; }
 .constellation {
   position: absolute;
   margin: 0;
-  right: 3vw;
-  top: 10vh;
-  width: min(26vw, 380px);
+  right: 2vw;
+  top: 12vh;
+  width: min(16vw, 260px);
   pointer-events: none;
 }
 .constellation svg { width: 100%; height: auto; overflow: visible; }
@@ -449,11 +450,21 @@ main { position: relative; z-index: 2; }
    --------------------------------------------------------- */
 .flacon {
   position: relative;
+  isolation: isolate;
   min-height: 100vh;
   min-height: 100svh;
   display: flex;
   align-items: center;
   padding: 7rem var(--gutter);
+}
+/* voile à gauche : le texte reste lisible quand la photo zoome dessous */
+.flacon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgba(4, 6, 12, 0.88) 0%, rgba(4, 6, 12, 0.6) 38%, rgba(4, 6, 12, 0) 62%);
+  pointer-events: none;
 }
 .flacon__details { display: grid; gap: 2rem; }
 .flacon__detail h3 {
@@ -469,11 +480,27 @@ main { position: relative; z-index: 2; }
 .motion .flacon__detail { grid-area: 1 / 1; opacity: 0; visibility: hidden; }
 .motion .flacon__detail:first-child { opacity: 1; visibility: visible; }
 
+.flacon__meta { display: none; align-items: center; gap: 1.25rem; margin-top: 2.5rem; }
+.motion .flacon__meta { display: flex; }
+.flacon__count {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.flacon__count-window {
+  display: inline-block;
+  height: 1.75em;
+  overflow: hidden;
+  vertical-align: bottom;
+  color: var(--champagne);
+}
+.flacon__count-roll { display: flex; flex-direction: column; }
+.flacon__count-roll span { height: 1.75em; line-height: 1.75em; }
 .flacon__bar {
-  display: none;
-  width: 12rem;
+  width: 10rem;
   height: 1px;
-  margin-top: 2.5rem;
   background: var(--line);
 }
 .flacon__bar span {
@@ -483,7 +510,6 @@ main { position: relative; z-index: 2; }
   transform: scaleX(0);
   transform-origin: 0 50%;
 }
-.motion .flacon__bar { display: block; }
 
 /* ---------------------------------------------------------
    5. Sillage (horizontal)
@@ -684,9 +710,66 @@ main { position: relative; z-index: 2; }
 .site-footer p { margin: 0.25rem auto; max-width: 52rem; }
 
 /* ---------------------------------------------------------
+   Titres découpés en mots
+   --------------------------------------------------------- */
+.word {
+  display: inline-block;
+  overflow: hidden;
+  overflow: clip;
+  /* marge pour les accents et les jambages */
+  padding: 0.14em 0.04em 0.16em;
+  margin: -0.14em -0.04em -0.16em;
+  vertical-align: top;
+}
+.word__inner { display: inline-block; will-change: transform; }
+
+/* ---------------------------------------------------------
+   Photos de repli (lecteurs d'écran, ou sans WebGL)
+   --------------------------------------------------------- */
+.photo-fallback {
+  display: block;
+  width: min(100%, 26rem);
+  height: auto;
+  margin: 2rem 0;
+  border-radius: 999px 999px 4px 4px;
+}
+.hero .photo-fallback { margin: 6rem auto 2rem; width: min(70vw, 22rem); }
+.webgl .photo-fallback {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+}
+
+/* ---------------------------------------------------------
+   Curseur doré
+   --------------------------------------------------------- */
+.cursor {
+  position: fixed;
+  left: 0; top: 0;
+  z-index: 60;
+  width: 34px; height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 1px solid rgba(230, 200, 145, 0.6);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s, width 0.35s var(--ease-out), height 0.35s var(--ease-out), margin 0.35s var(--ease-out), background-color 0.35s;
+}
+.cursor.is-on { opacity: 1; }
+.cursor.is-hover {
+  width: 66px; height: 66px;
+  margin: -33px 0 0 -33px;
+  background-color: rgba(230, 200, 145, 0.08);
+}
+
+/* ---------------------------------------------------------
    États initiaux des animations (uniquement si .motion)
    --------------------------------------------------------- */
 .motion [data-reveal],
+.motion [data-split],
 .motion [data-hero-fade] { opacity: 0; }
 .motion .hero__letter { opacity: 0; }
 
@@ -717,7 +800,8 @@ main { position: relative; z-index: 2; }
   .facts { grid-template-columns: 1fr 1fr; gap: 1.25rem 2rem; }
   .facts div:last-child { grid-column: 1 / -1; }
 
-  .constellation { right: 0; top: 6vh; width: 64vw; opacity: 0.6; }
+  .constellation { right: 0; top: 8vh; width: 40vw; opacity: 0.55; }
+  .flacon::before { display: none; }
 
   .motion .sillage__track { padding-left: var(--gutter); bottom: 2.5rem; }
   .motion .mood { width: 78vw; }
