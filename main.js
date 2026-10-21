@@ -25,7 +25,7 @@
      Réglages du film
      ------------------------------------------------------------------------ */
 
-  const FRAME_COUNT = 145;
+  const FRAME_COUNT = 287;   // 6 s de vidéo à 48 images par seconde
   const FRAME_SPEED = 2.0;   // le film se termine à 50 % du récit
   const IMAGE_SCALE = 0.88;  // « padded cover » : l'image ne touche pas l'en-tête
   const FRAME_DIR = mobileMQ.matches ? 'frames/mobile' : 'frames/desktop';
@@ -112,92 +112,233 @@
   }
 
   /* ------------------------------------------------------------------------
-     Rendu du film sur canvas
+     Images du film : téléchargées une fois (compressées), décodées à l'avance
+     hors du fil principal dans une fenêtre autour de la position de scroll
      ------------------------------------------------------------------------ */
 
-  const canvas = $('#canvas');
-  const ctx = canvas.getContext('2d');
-  const frames = new Array(FRAME_COUNT);
-
-  const comp = document.createElement('canvas');  // image courante (+ fondu), bords adoucis
-  const cctx = comp.getContext('2d');
-  const mask = document.createElement('canvas');
-  const tiny = document.createElement('canvas');  // miniature : prolonge les bords sans couture
+  const sources = new Array(FRAME_COUNT);  // fichiers compressés (Blob), ou <img> en repli
+  const thumbs = new Array(FRAME_COUNT);   // couleurs des bords de chaque image
+  const decoded = new Map();               // images prêtes à dessiner
+  const pending = new Set();
   const TW = 12;  // peu de colonnes : bandes douces en haut et en bas
   const TH = 27;  // assez de lignes pour suivre papier et sol sur les côtés
-  tiny.width = TW;
-  tiny.height = TH;
-  const tctx = tiny.getContext('2d');
+  const WINDOW = mobileMQ.matches ? 32 : 48;  // images décodées gardées en mémoire
+  const hasBitmap = 'createImageBitmap' in window;
+  let want = 0;
+  let wantDir = 1;
+  let onFrameReady = () => {};
 
-  const film = { frame: 0, fx: 0.64, sx: 0.5, zoom: 1, sy: 0.5 };
-  let cw = 0;
-  let ch = 0;
-
-  function sizeCanvas() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    cw = Math.round(innerWidth * dpr);
-    ch = Math.round(innerHeight * dpr);
-    canvas.width = cw;
-    canvas.height = ch;
+  function loadImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
   }
 
-  // Masque aux bords adoucis (courbe douce) : l'image se fond dans son prolongement
-  function buildMask(w, h) {
-    comp.width = mask.width = w;
-    comp.height = mask.height = h;
-    const m = mask.getContext('2d');
-    const ramp = (g, f) => {
-      [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
-        const a = smooth(t).toFixed(3);
-        g.addColorStop(t * f, `rgba(0,0,0,${a})`);
-        g.addColorStop(1 - t * f, `rgba(0,0,0,${a})`);
+  // Couleurs des bords de chaque image, précalculées (frames/edges.png, 12 × 27 par
+  // image) : des dégradés prolongent le papier et le sol au-delà de l'image
+  let edgesReady = null;
+  let edgeData = null;
+  let sheetCols = 0;
+
+  function loadEdges() {
+    if (!edgesReady) {
+      edgesReady = loadImage('frames/edges.png').then((sheet) => {
+        if (!sheet) return;
+        try {
+          const c = document.createElement('canvas');
+          c.width = sheet.naturalWidth;
+          c.height = sheet.naturalHeight;
+          const g = c.getContext('2d', { willReadFrequently: true });
+          g.drawImage(sheet, 0, 0);
+          edgeData = g.getImageData(0, 0, c.width, c.height);
+          sheetCols = Math.floor(c.width / TW);
+        } catch (e) { /* fichier ouvert sans serveur : fond uni */ }
       });
-      return g;
-    };
-    m.fillStyle = ramp(m.createLinearGradient(0, 0, w, 0), (0.18 * h) / w);
-    m.fillRect(0, 0, w, h);
-    m.globalCompositeOperation = 'destination-in';
-    m.fillStyle = ramp(m.createLinearGradient(0, 0, 0, h), 0.13);
-    m.fillRect(0, 0, w, h);
+    }
+    return edgesReady;
   }
 
-  function nearest(i) {
-    if (frames[i]) return frames[i];
+  function edgeColors(i) {
+    if (thumbs[i] || !edgeData) return thumbs[i] || null;
+    const ox = (i % sheetCols) * TW;
+    const oy = Math.floor(i / sheetCols) * TH;
+    const d = edgeData.data;
+    const px = (x, y) => {
+      const o = ((oy + y) * edgeData.width + ox + x) * 4;
+      return `rgb(${d[o]},${d[o + 1]},${d[o + 2]})`;
+    };
+    const col = (x) => Array.from({ length: TH }, (_, y) => px(x, y));
+    const row = (y) => Array.from({ length: TW }, (_, x) => px(x, y));
+    thumbs[i] = { L: col(0), R: col(TW - 1), T: row(0), B: row(TH - 1) };
+    return thumbs[i];
+  }
+
+  function gradient(c, x0, y0, x1, y1, colors) {
+    const g = c.createLinearGradient(x0, y0, x1, y1);
+    colors.forEach((col, k) => g.addColorStop((k + 0.5) / colors.length, col));
+    return g;
+  }
+
+  async function fetchFrame(i) {
+    if (sources[i]) return;
+    const url = frameSrc(i);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      sources[i] = await res.blob();
+    } catch (e) {
+      sources[i] = await loadImage(url);  // repli (fichier ouvert sans serveur)
+    }
+  }
+
+  // Ordre de décodage : l'image visée, puis surtout celles qui arrivent dans le sens du scroll
+  function wanted() {
+    const list = [want];
+    const ahead = Math.round(WINDOW * 0.75);
+    const behind = WINDOW - ahead;
+    for (let d = 1; d <= ahead; d++) {
+      const a = want + wantDir * d;
+      if (a >= 0 && a < FRAME_COUNT) list.push(a);
+      const b = want - wantDir * d;
+      if (d <= behind && b >= 0 && b < FRAME_COUNT) list.push(b);
+    }
+    return list;
+  }
+
+  function trimDecoded() {
+    if (decoded.size <= WINDOW + 8) return;
+    const keep = new Set(wanted());
+    for (const [i, bmp] of decoded) {
+      if (decoded.size <= WINDOW) break;
+      if (keep.has(i)) continue;
+      if (bmp.close) bmp.close();
+      decoded.delete(i);
+    }
+  }
+
+  function decodeFrame(i) {
+    pending.add(i);
+    (hasBitmap ? createImageBitmap(sources[i]) : Promise.resolve(sources[i])).then((bmp) => {
+      pending.delete(i);
+      bmp.frameIndex = i;
+      decoded.set(i, bmp);
+      trimDecoded();
+      onFrameReady(i);
+      pumpDecode();
+    }, () => pending.delete(i));
+  }
+
+  function pumpDecode() {
+    for (const i of wanted()) {
+      if (pending.size >= 4) return;
+      if (sources[i] && !decoded.has(i) && !pending.has(i)) decodeFrame(i);
+    }
+  }
+
+  function aim(i, dir) {
+    if (i === want && (!dir || dir === wantDir)) return;
+    want = i;
+    if (dir) wantDir = dir;
+    pumpDecode();
+  }
+
+  // Image exacte si elle est prête, sinon la plus proche déjà décodée
+  function pickFrame(i) {
+    if (decoded.has(i)) return decoded.get(i);
     for (let d = 1; d < FRAME_COUNT; d++) {
-      if (frames[i - d]) return frames[i - d];
-      if (frames[i + d]) return frames[i + d];
+      const back = decoded.get(i - wantDir * d);
+      if (back) return back;
+      const fwd = decoded.get(i + wantDir * d);
+      if (fwd) return fwd;
     }
     return null;
   }
 
+  // Téléchargement progressif : les 12 premières d'abord, puis le reste dans l'ordre
+  async function preloadFrames(onProgress) {
+    let done = 0;
+    const tick = () => onProgress(++done / FRAME_COUNT);
+    const FIRST = 12;
+    await Promise.all([loadEdges(), ...Array.from({ length: FIRST }, (_, i) => fetchFrame(i).then(tick))]);
+    pumpDecode();
+    let next = FIRST;
+    const worker = async () => {
+      while (next < FRAME_COUNT) {
+        const i = next++;
+        await fetchFrame(i);
+        tick();
+        if (Math.abs(i - want) <= WINDOW) pumpDecode();
+      }
+    };
+    await Promise.all(Array.from({ length: 8 }, worker));
+    pumpDecode();
+  }
+
+  /* ------------------------------------------------------------------------
+     Rendu du film sur canvas : une image nette par position de scroll
+     ------------------------------------------------------------------------ */
+
+  const canvas = $('#canvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const FRAME_W = mobileMQ.matches ? 960 : 1440;
+  const film = { frame: 0, fx: 0.64, sx: 0.5, zoom: 1, sy: 0.5 };
+  let cw = 0;
+  let ch = 0;
+
+  // Bords fondus : petit calque posé sur le pourtour de l'image, dans les couleurs
+  // de ses bords, de plus en plus transparent vers l'intérieur. Basse définition :
+  // son contenu est un simple dégradé.
+  const EW = 360;
+  const EH = 202;
+  const BW = EW * 0.12;
+  const BH = EH * 0.14;
+  const makeCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const edge = makeCanvas(EW, EH);
+  const ectx = edge.getContext('2d');
+  const band = makeCanvas(EW, EH);
+  const bctx = band.getContext('2d');
+  const bandMask = {};
+  [['L', 0, 0, BW, 0], ['R', EW, 0, EW - BW, 0], ['T', 0, 0, 0, BH], ['B', 0, EH, 0, EH - BH]].forEach(([side, x0, y0, x1, y1]) => {
+    const m = makeCanvas(EW, EH);
+    const g = m.getContext('2d');
+    const grad = g.createLinearGradient(x0, y0, x1, y1);
+    for (let k = 0; k <= 8; k++) grad.addColorStop(k / 8, `rgba(0,0,0,${(1 - smooth(k / 8)).toFixed(3)})`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, EW, EH);
+    bandMask[side] = m;
+  });
+  let edgeFor = -1; // image dont le calque des bords est à jour
+
+  // Fond autour de l'image : des dégradés lisses, calculés en basse définition
+  // puis agrandis (bien moins de pixels à peindre à chaque image)
+  const BG_K = 8;
+  const bg = makeCanvas(1, 1);
+  const gctx = bg.getContext('2d', { alpha: false });
+
+  function sizeCanvas() {
+    // Pas plus de pixels que l'image source n'en contient : rendu plus léger, même netteté
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5, Math.max(1, FRAME_W / innerWidth));
+    cw = Math.round(innerWidth * dpr);
+    ch = Math.round(innerHeight * dpr);
+    canvas.width = cw;
+    canvas.height = ch;
+    bg.width = Math.ceil(cw / BG_K) + 1;
+    bg.height = Math.ceil(ch / BG_K) + 1;
+    gctx.setTransform(1 / BG_K, 0, 0, 1 / BG_K, 0, 0);
+  }
+
   function drawFilm() {
-    const f = clamp(film.frame, 0, FRAME_COUNT - 1);
-    const i0 = Math.floor(f);
-    const t = f - i0;
-    const A = nearest(i0);
-    if (!A || !cw) return;
-    const iw = A.naturalWidth;
-    const ih = A.naturalHeight;
-    if (comp.width !== iw || comp.height !== ih) buildMask(iw, ih);
+    const i = clamp(Math.round(film.frame), 0, FRAME_COUNT - 1);
+    const img = pickFrame(i);
+    if (!img || !cw) return false;
+    const e = edgeColors(img.frameIndex);
+    const iw = img.width || img.naturalWidth;
+    const ih = img.height || img.naturalHeight;
 
-    // 1. image courante, fondue avec la suivante pour adoucir le scrub
-    cctx.globalCompositeOperation = 'copy';
-    cctx.globalAlpha = 1;
-    cctx.drawImage(A, 0, 0);
-    const B = frames[i0 + 1];
-    if (B && frames[i0] && t > 0.01) {
-      cctx.globalCompositeOperation = 'source-over';
-      cctx.globalAlpha = t;
-      cctx.drawImage(B, 0, 0);
-      cctx.globalAlpha = 1;
-    }
-    tctx.globalCompositeOperation = 'copy';
-    tctx.drawImage(comp, 0, 0, TW, TH);
-    cctx.globalCompositeOperation = 'destination-in';
-    cctx.drawImage(mask, 0, 0);
-    cctx.globalCompositeOperation = 'source-over';
-
-    // 2. cadrage
+    // Cadrage
     const mobile = mobileMQ.matches;
     const s = mobile
       ? (cw * 1.8 / iw) * film.zoom
@@ -209,56 +350,67 @@
     const rx = dx + dw;
     const by = dy + dh;
 
-    // 3. fond : la miniature étirée prolonge les bords de l'image (papier, sol)
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(tiny, 0, 0, TW, TH, dx, dy, dw, dh);
-    if (dx > 0) ctx.drawImage(tiny, 0, 0, 1, TH, 0, dy, dx + 1, dh);
-    if (rx < cw) ctx.drawImage(tiny, TW - 1, 0, 1, TH, rx - 1, dy, cw - rx + 1, dh);
-    if (dy > 0) {
-      ctx.drawImage(tiny, 0, 0, TW, 1, dx, 0, dw, dy + 1);
-      if (dx > 0) ctx.drawImage(tiny, 0, 0, 1, 1, 0, 0, dx + 1, dy + 1);
-      if (rx < cw) ctx.drawImage(tiny, TW - 1, 0, 1, 1, rx - 1, 0, cw - rx + 1, dy + 1);
+    // 1. Fond : les couleurs des bords prolongent l'image (papier, sol)
+    if (e) {
+      // chaque zone déborde un peu sous l'image : l'agrandissement ne mélange
+      // jamais une couleur de bord avec autre chose
+      const m = 2 * BG_K;
+      gctx.fillStyle = gradient(gctx, 0, dy, 0, by, e.L);
+      gctx.fillRect(0, 0, Math.max(0, dx) + m, ch);
+      gctx.fillStyle = gradient(gctx, 0, dy, 0, by, e.R);
+      gctx.fillRect(Math.min(cw, rx) - m, 0, cw, ch);
+      gctx.fillStyle = gradient(gctx, dx, 0, rx, 0, e.T);
+      gctx.fillRect(dx, 0, dw, Math.max(0, dy) + m);
+      gctx.fillStyle = gradient(gctx, dx, 0, rx, 0, e.B);
+      gctx.fillRect(dx, Math.min(ch, by) - m, dw, ch);
+      // on ne recopie que ce qui dépasse de l'image
+      const x0 = clamp(Math.floor(dx) + 1, 0, cw);
+      const x1 = clamp(Math.ceil(rx) - 1, 0, cw);
+      const y0 = clamp(Math.floor(dy) + 1, 0, ch);
+      const y1 = clamp(Math.ceil(by) - 1, 0, ch);
+      [[0, 0, x0, ch], [x1, 0, cw - x1, ch], [x0, 0, x1 - x0, y0], [x0, y1, x1 - x0, ch - y1]].forEach(([x, y, w, h]) => {
+        if (w > 0 && h > 0) ctx.drawImage(bg, x / BG_K, y / BG_K, w / BG_K, h / BG_K, x, y, w, h);
+      });
+    } else {
+      ctx.fillStyle = '#ece6d6';
+      ctx.fillRect(0, 0, cw, ch);
     }
-    if (by < ch) {
-      ctx.drawImage(tiny, 0, TH - 1, TW, 1, dx, by - 1, dw, ch - by + 1);
-      if (dx > 0) ctx.drawImage(tiny, 0, TH - 1, 1, 1, 0, by - 1, dx + 1, ch - by + 1);
-      if (rx < cw) ctx.drawImage(tiny, TW - 1, TH - 1, 1, 1, rx - 1, by - 1, cw - rx + 1, ch - by + 1);
-    }
 
-    // 4. l'image nette par-dessus, bords fondus dans le fond
-    ctx.drawImage(comp, dx, dy, dw, dh);
-  }
+    // 2. L'image du film, nette
+    ctx.drawImage(img, dx, dy, dw, dh);
 
-  function loadFrame(i) {
-    if (frames[i]) return Promise.resolve(frames[i]);
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.decoding = 'async';
-      img.onload = () => {
-        const ready = img.decode ? img.decode().catch(() => {}) : Promise.resolve();
-        ready.then(() => { frames[i] = img; resolve(img); });
-      };
-      img.onerror = () => resolve(null);
-      img.src = frameSrc(i);
-    });
-  }
-
-  // Deux temps : 10 premières images (premier rendu rapide), puis le reste
-  async function preloadFrames(onProgress, onFirst) {
-    let done = 0;
-    const tick = () => onProgress(++done / FRAME_COUNT);
-    const FIRST = 10;
-    await Promise.all(Array.from({ length: FIRST }, (_, i) => loadFrame(i).then(tick)));
-    onFirst();
-    const queue = Array.from({ length: FRAME_COUNT - FIRST }, (_, i) => i + FIRST);
-    const worker = async () => {
-      while (queue.length) {
-        await loadFrame(queue.shift());
-        tick();
+    // 3. Bords fondus : près des bords, l'image se fond dans ces mêmes couleurs
+    if (e) {
+      if (edgeFor !== img.frameIndex) {
+        edgeFor = img.frameIndex;
+        ectx.clearRect(0, 0, EW, EH);
+        [
+          ['T', gradient(bctx, 0, 0, EW, 0, e.T), 0, 0, EW, BH],
+          ['B', gradient(bctx, 0, 0, EW, 0, e.B), 0, EH - BH, EW, BH],
+          ['L', gradient(bctx, 0, 0, 0, EH, e.L), 0, 0, BW, EH],
+          ['R', gradient(bctx, 0, 0, 0, EH, e.R), EW - BW, 0, BW, EH],
+        ].forEach(([side, fill, x, y, w, h]) => {
+          bctx.globalCompositeOperation = 'copy';
+          bctx.fillStyle = fill;
+          bctx.fillRect(x, y, w, h);
+          bctx.globalCompositeOperation = 'destination-in';
+          bctx.drawImage(bandMask[side], 0, 0);
+          ectx.drawImage(band, 0, 0);
+        });
       }
-    };
-    await Promise.all(Array.from({ length: 6 }, worker));
+      // seulement les quatre bandes : le centre du calque est transparent
+      const kx = dw / EW;
+      const ky = dh / EH;
+      [
+        [0, 0, EW, BH],
+        [0, EH - BH, EW, BH],
+        [0, BH, BW, EH - 2 * BH],
+        [EW - BW, BH, BW, EH - 2 * BH],
+      ].forEach(([x, y, w, h]) => {
+        ctx.drawImage(edge, x, y, w, h, dx + x * kx, dy + y * ky, w * kx, h * ky);
+      });
+    }
+    return img.frameIndex === i;
   }
 
   /* ------------------------------------------------------------------------
@@ -271,7 +423,7 @@
     let h = 0;
     let stars = [];
     function resize() {
-      const r = Math.min(window.devicePixelRatio || 1, 2);
+      const r = Math.min(window.devicePixelRatio || 1, 1.5);
       w = cvs.clientWidth;
       h = cvs.clientHeight;
       if (!w || !h) return;
@@ -300,9 +452,13 @@
         for (const st of stars) {
           if (st.warm !== !!k) continue;
           c.globalAlpha = st.a * (0.62 + 0.38 * Math.sin(time * st.s + st.p));
-          c.beginPath();
-          c.arc(st.x, st.y, st.r, 0, 6.2832);
-          c.fill();
+          if (st.r < 0.9) {
+            c.fillRect(st.x - st.r, st.y - st.r, st.r * 2, st.r * 2);
+          } else {
+            c.beginPath();
+            c.arc(st.x, st.y, st.r, 0, 6.2832);
+            c.fill();
+          }
         }
       }
       c.globalAlpha = 1;
@@ -534,13 +690,44 @@
       }
     }
 
-    function render(time) {
-      if (heroP < 1) heroSky.draw(time);
-      if (starsA > 0.01) overlaySky.draw(time);
+    let shownFrame = 0;
+    let filmDirty = true;
+    let tick = 0;
+    onFrameReady = (i) => { if (i === Math.round(shownFrame)) filmDirty = true; };
+
+    function render(time, deltaTime) {
+      // étoiles : 30 i/s suffisent pour le scintillement
+      tick++;
+      if (tick % 2 === 0) {
+        if (heroP < 1) heroSky.draw(time);
+        if (starsA > 0.01) overlaySky.draw(time);
+      }
+
+      // Film : l'image affichée rejoint la position de scroll en passant par
+      // chaque image intermédiaire, même si le scroll saute (clavier, tactile)
+      const target = Math.min(p * FRAME_SPEED, 1) * (FRAME_COUNT - 1);
+      if (shownFrame !== target) {
+        const dir = Math.sign(target - shownFrame);
+        shownFrame += (target - shownFrame) * (1 - Math.exp(-(deltaTime || 16) / 55));
+        if (Math.abs(target - shownFrame) < 0.02) shownFrame = target;
+        aim(Math.round(shownFrame), dir);
+        filmDirty = true;
+      }
+      if (filmDirty || dirty) {
+        film.frame = shownFrame;
+        sample(mobileMQ.matches ? VIEW.mobile : VIEW.desktop, p, view);
+        film.fx = view[0];
+        film.sx = view[1];
+        film.zoom = view[2];
+        film.sy = view[3];
+        drawFilm();  // une image nette par position, sans fondu entre deux images
+        filmDirty = false;
+      }
+
       if (!dirty) return;
       dirty = false;
 
-      // 1. Hero : le film s'ouvre en cercle pendant que le titre s'efface
+      // Hero : le film s'ouvre en cercle pendant que le titre s'efface
       const wipe = smooth(clamp((heroP - 0.08) / 0.86));
       const clip = wipe > 0.999 ? 'none' : `circle(${(wipe * 75).toFixed(2)}% at 50% 50%)`;
       if (clip !== lastClip) {
@@ -550,18 +737,10 @@
       heroSticky.style.opacity = (1 - clamp((heroP - 0.2) / 0.7)).toFixed(3);
       heroCenter.style.transform = `translate3d(0, ${(-heroP * 10).toFixed(2)}vh, 0) scale(${(1 - heroP * 0.08).toFixed(4)})`;
 
-      // 2. Film
-      film.frame = Math.min(p * FRAME_SPEED, 1) * (FRAME_COUNT - 1);
-      sample(mobileMQ.matches ? VIEW.mobile : VIEW.desktop, p, view);
-      film.fx = view[0];
-      film.sx = view[1];
-      film.zoom = view[2];
-      film.sy = view[3];
-      drawFilm();
-
       // 3. Calque de couleur et étoiles
       sample(OVERLAY, p, ov);
       overlay.style.backgroundColor = `rgba(${ov[0] | 0}, ${ov[1] | 0}, ${ov[2] | 0}, ${ov[3].toFixed(3)})`;
+      overlay.style.visibility = ov[3] < 0.005 ? 'hidden' : 'visible';  // pas de calque inutile sur le film
       starsA = sample(STARS, p, one)[0];
       overlaySkyEl.style.opacity = starsA.toFixed(3);
 
@@ -658,14 +837,11 @@
         .from('.site-header', { opacity: 0, y: -12, duration: 1, ease: 'power2.out' }, 1.2);
     }
 
-    preloadFrames(
-      (ratio) => {
-        bar.style.transform = `scaleX(${ratio.toFixed(3)})`;
-        pct.textContent = String(Math.round(ratio * 100)).padStart(3, '0');
-      },
-      () => { dirty = true; },
-    ).then(() => setTimeout(reveal, 250));
-    setTimeout(reveal, 12000); // ne jamais bloquer : les images restantes arrivent en fond
+    preloadFrames((ratio) => {
+      bar.style.transform = `scaleX(${ratio.toFixed(3)})`;
+      pct.textContent = String(Math.round(ratio * 100)).padStart(3, '0');
+    }).then(() => setTimeout(reveal, 250));
+    setTimeout(reveal, 15000); // ne jamais bloquer : les images restantes arrivent en fond
   }
 
   /* ------------------------------------------------------------------------
@@ -689,12 +865,15 @@
       film.zoom = view[2];
       film.sy = view[3];
       shown = pp;
-      loadFrame(idx).then(() => { if (shown === pp) drawFilm(); });
+      aim(idx, 0);
+      fetchFrame(idx).then(() => pumpDecode());
     }
 
     const setInk = (z) => root.style.setProperty('--hdr-ink', INK[z]);
     const midOf = (s) => (s.el.id === 'anatomie' ? s.leave : (s.enter + s.leave) / 2);
 
+    onFrameReady = (i) => { if (i === film.frame) drawFilm(); };
+    loadEdges().then(() => drawFilm());
     show(0);
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
