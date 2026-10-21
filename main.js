@@ -123,6 +123,7 @@
   const TW = 12;  // peu de colonnes : bandes douces en haut et en bas
   const TH = 27;  // assez de lignes pour suivre papier et sol sur les côtés
   const WINDOW = mobileMQ.matches ? 32 : 48;  // images décodées gardées en mémoire
+  const DECODERS = clamp(navigator.hardwareConcurrency || 4, 4, 8);  // décodages en parallèle
   const hasBitmap = 'createImageBitmap' in window;
   let want = 0;
   let wantDir = 1;
@@ -142,9 +143,13 @@
   let edgesReady = null;
   let edgeData = null;
   let sheetCols = 0;
+  // Zone qui bouge entre deux images voisines (frames/motion.json, en millièmes) :
+  // la transition entre elles ne redessine que cette zone
+  let motion = null;
 
   function loadEdges() {
     if (!edgesReady) {
+      fetch('frames/motion.json').then((r) => r.json()).then((m) => { motion = m; }, () => {});
       edgesReady = loadImage('frames/edges.png').then((sheet) => {
         if (!sheet) return;
         try {
@@ -233,7 +238,7 @@
 
   function pumpDecode() {
     for (const i of wanted()) {
-      if (pending.size >= 4) return;
+      if (pending.size >= DECODERS) return;
       if (sources[i] && !decoded.has(i) && !pending.has(i)) decodeFrame(i);
     }
   }
@@ -284,7 +289,7 @@
   const canvas = $('#canvas');
   const ctx = canvas.getContext('2d', { alpha: false });
   const FRAME_W = mobileMQ.matches ? 960 : 1440;
-  const film = { frame: 0, fx: 0.64, sx: 0.5, zoom: 1, sy: 0.5 };
+  const film = { frame: 0, blend: false, fx: 0.64, sx: 0.5, zoom: 1, sy: 0.5 };
   let cw = 0;
   let ch = 0;
 
@@ -319,8 +324,9 @@
   const gctx = bg.getContext('2d', { alpha: false });
 
   function sizeCanvas() {
-    // Pas plus de pixels que l'image source n'en contient : rendu plus léger, même netteté
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5, Math.max(1, FRAME_W / innerWidth));
+    // Pas plus de pixels que l'image source n'en contient : rendu plus léger, même
+    // netteté. Sur un grand écran, le navigateur agrandit le canvas lui-même.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5, FRAME_W / innerWidth);
     cw = Math.round(innerWidth * dpr);
     ch = Math.round(innerHeight * dpr);
     canvas.width = cw;
@@ -331,10 +337,20 @@
   }
 
   function drawFilm() {
-    const i = clamp(Math.round(film.frame), 0, FRAME_COUNT - 1);
-    const img = pickFrame(i);
+    const f = clamp(film.frame, 0, FRAME_COUNT - 1);
+    const i = Math.round(f);
+    // Entre deux images voisines (1/48 s d'écart), la suivante apparaît en
+    // transparence : le film avance en continu même quand un cran de molette
+    // ne le fait progresser que de quelques images
+    const a = Math.floor(f);
+    const t = f - a;
+    const box = motion && motion[a];
+    const blend = film.blend && t > 0.02 && (!motion || (box && box[2] > box[0]))
+      && decoded.has(a) && decoded.has(a + 1);
+    const img = blend ? decoded.get(a) : pickFrame(i);
     if (!img || !cw) return false;
-    const e = edgeColors(img.frameIndex);
+    const ei = blend ? i : img.frameIndex;  // couleurs de bord de l'image dominante
+    const e = edgeColors(ei);
     const iw = img.width || img.naturalWidth;
     const ih = img.height || img.naturalHeight;
 
@@ -376,13 +392,25 @@
       ctx.fillRect(0, 0, cw, ch);
     }
 
-    // 2. L'image du film, nette
+    // 2. L'image du film
     ctx.drawImage(img, dx, dy, dw, dh);
+    if (blend) {
+      const next = decoded.get(a + 1);
+      ctx.globalAlpha = t;
+      if (box) {
+        const [mx, my] = [box[0] / 1000 * iw, box[1] / 1000 * ih];
+        const [mw, mh] = [(box[2] - box[0]) / 1000 * iw, (box[3] - box[1]) / 1000 * ih];
+        ctx.drawImage(next, mx, my, mw, mh, dx + mx * s, dy + my * s, mw * s, mh * s);
+      } else {
+        ctx.drawImage(next, dx, dy, dw, dh);
+      }
+      ctx.globalAlpha = 1;
+    }
 
     // 3. Bords fondus : près des bords, l'image se fond dans ces mêmes couleurs
     if (e) {
-      if (edgeFor !== img.frameIndex) {
-        edgeFor = img.frameIndex;
+      if (edgeFor !== ei) {
+        edgeFor = ei;
         ectx.clearRect(0, 0, EW, EH);
         [
           ['T', gradient(bctx, 0, 0, EW, 0, e.T), 0, 0, EW, BH],
@@ -410,7 +438,7 @@
         ctx.drawImage(edge, x, y, w, h, dx + x * kx, dy + y * ky, w * kx, h * ky);
       });
     }
-    return img.frameIndex === i;
+    return blend || img.frameIndex === i;
   }
 
   /* ------------------------------------------------------------------------
@@ -693,7 +721,9 @@
     let shownFrame = 0;
     let filmDirty = true;
     let tick = 0;
-    onFrameReady = (i) => { if (i === Math.round(shownFrame)) filmDirty = true; };
+    let scrollTarget = -1;
+    let movedAt = 0;
+    onFrameReady = (i) => { if (Math.abs(i - shownFrame) < 1.5) filmDirty = true; };
 
     function render(time, deltaTime) {
       // étoiles : 30 i/s suffisent pour le scintillement
@@ -704,8 +734,15 @@
       }
 
       // Film : l'image affichée rejoint la position de scroll en passant par
-      // chaque image intermédiaire, même si le scroll saute (clavier, tactile)
-      const target = Math.min(p * FRAME_SPEED, 1) * (FRAME_COUNT - 1);
+      // chaque image intermédiaire, même si le scroll saute (clavier, tactile).
+      // À l'arrêt, elle se pose sur l'image la plus proche : une image nette.
+      let target = Math.min(p * FRAME_SPEED, 1) * (FRAME_COUNT - 1);
+      if (target !== scrollTarget) {
+        scrollTarget = target;
+        movedAt = time;
+      } else if (time - movedAt > 0.15) {
+        target = Math.round(target);
+      }
       if (shownFrame !== target) {
         const dir = Math.sign(target - shownFrame);
         shownFrame += (target - shownFrame) * (1 - Math.exp(-(deltaTime || 16) / 55));
@@ -714,13 +751,16 @@
         filmDirty = true;
       }
       if (filmDirty || dirty) {
+        // transition seulement quand le film avance de moins d'une image par
+        // rafraîchissement ; plus vite, chaque rafraîchissement a déjà sa propre image
+        film.blend = Math.abs(shownFrame - film.frame) < 0.75;
         film.frame = shownFrame;
         sample(mobileMQ.matches ? VIEW.mobile : VIEW.desktop, p, view);
         film.fx = view[0];
         film.sx = view[1];
         film.zoom = view[2];
         film.sy = view[3];
-        drawFilm();  // une image nette par position, sans fondu entre deux images
+        drawFilm();
         filmDirty = false;
       }
 

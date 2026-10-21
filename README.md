@@ -54,16 +54,17 @@ ffmpeg -framerate 48 -i png/f_%04d.png -vf "scale=960:-2:flags=lanczos" -c:v lib
 
 - `frames/desktop/` : 287 images de 1440 px, 6,1 Mo au total
 - `frames/mobile/` : 287 images de 960 px, 3,3 Mo, chargées sous 768 px de large
+- `frames/motion.json` (5 Ko) : pour chaque paire d'images voisines, le rectangle qui bouge de l'une à l'autre (en millièmes de l'image ; écart de luminosité supérieur à 8 sur une version réduite à 360 px, plus 6 % de marge)
 - `frames/edges.png` (73 Ko) : pour chaque image, une vignette de 12 × 27 px dont la première et la dernière colonne et la première et la dernière ligne contiennent la couleur moyenne des bords. Le canvas s'en sert pour prolonger le papier et le sol au-delà de l'image. Elle se régénère à partir des PNG de l'étape 1 (24 vignettes par ligne, bords = moyenne des 18 px extérieurs).
 
-Pour changer de vidéo : remplacer les images en gardant la numérotation, régénérer `edges.png`, puis ajuster `FRAME_COUNT` dans `main.js`.
+Pour changer de vidéo : remplacer les images en gardant la numérotation, régénérer `edges.png` et `motion.json`, puis ajuster `FRAME_COUNT` dans `main.js`.
 
 ## Accessibilité et performance
 
 - Chargement progressif : la vignette des bords et les 12 premières images d'abord, le reste ensuite sur 8 connexions ; l'écran de chargement ne bloque jamais plus de 15 secondes
 - Les images sont gardées compressées en mémoire et décodées hors du fil principal (`createImageBitmap`) dans une fenêtre glissante autour de la position courante (48 images sur ordinateur, 32 sur mobile, surtout dans le sens du scroll) ; les images qui sortent de la fenêtre sont libérées
-- L'image affichée rattrape la position du scroll en douceur, sans sauter d'image ni fondre deux images l'une dans l'autre
-- Canvas opaque, limité à la définition des images source (pixel ratio 1,5 au plus) ; le fond autour de l'image est calculé en basse définition puis agrandi ; rendu seulement quand le scroll bouge
+- L'image affichée rattrape la position du scroll en douceur, sans sauter d'image. Quand le film avance de moins d'une image par rafraîchissement (un cran de molette sur ordinateur n'avance que de 4 images), l'image suivante apparaît en transparence, seulement dans la zone qui bouge : le mouvement reste continu. À l'arrêt, le film se pose sur une seule image nette
+- Canvas opaque, jamais plus défini que les images source (pixel ratio 1,5 au plus ; sur un écran plus large que 1440 px, le navigateur l'agrandit lui-même) ; le fond autour de l'image est calculé en basse définition puis agrandi ; rendu seulement quand le scroll bouge
 - `prefers-reduced-motion` : pas de smooth scroll ni d'animation, sections dans le flux normal, une image fixe par chapitre, compteurs affichés directement
 - Si un CDN ne répond pas, la page bascule sur cette version statique
 - HTML sémantique, lien d'évitement, focus visible ; au clavier, un lien d'une section masquée fait défiler jusqu'à elle ; le canvas a une description textuelle
