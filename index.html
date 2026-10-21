@@ -1,282 +1,257 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Altaïr — L'éclat d'une étoile ambrée · Concept</title>
-  <meta name="description" content="Concept de landing page scrollytelling autour du parfum Altaïr de Parfums de Marly. Projet de portfolio non officiel." />
-  <meta name="theme-color" content="#04060c" />
-  <meta name="color-scheme" content="dark" />
-
-  <!-- Active les états d'animation uniquement si le mouvement est autorisé.
-       Filet de sécurité : si le JS (ou un CDN) ne répond pas, on révèle tout. -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Altaïr — Parfums de Marly · concept scrollytelling</title>
+  <meta name="description" content="Concept non officiel : le parfum Altaïr de Parfums de Marly raconté au fil du scroll, du coffret qui s'ouvre au flacon démonté pièce par pièce.">
+  <meta name="theme-color" content="#0b0c11">
   <script>
     (function () {
-      var root = document.documentElement;
-      root.classList.add('js');
-      try {
-        var c = document.createElement('canvas');
-        if (c.getContext('webgl2') || c.getContext('webgl')) root.classList.add('webgl');
-      } catch (e) {}
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) root.classList.add('motion');
+      var d = document.documentElement;
+      d.classList.add('js');
+      var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!reduce) d.classList.add('motion');
+      // Filet de sécurité : si les scripts ne démarrent pas, on rend la page lisible sans animation
       setTimeout(function () {
-        if (!window.__altairReady) root.classList.remove('motion', 'webgl');
-      }, 5000);
+        if (!window.__altairReady) { d.classList.remove('motion', 'is-loading'); d.classList.add('no-film'); }
+      }, 8000);
+      d.classList.add('is-loading');
     })();
   </script>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&display=swap" />
-  <link rel="stylesheet" href="style.css" />
-
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js"
-      }
-    }
-  </script>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-  <script defer src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script type="module" src="main.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400..600&display=swap">
+  <link rel="preload" as="image" href="frames/desktop/frame_0001.webp" media="(min-width: 768px)">
+  <link rel="preload" as="image" href="frames/mobile/frame_0001.webp" media="(max-width: 767px)">
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <a class="skip-link" href="#main">Aller au contenu</a>
+  <a class="skip-link" href="#contenu">Aller au contenu</a>
 
-  <!-- Scène WebGL plein écran : photos animées + étoiles (les photos ont aussi un équivalent <img> ci-dessous) -->
-  <canvas id="scene" class="scene" aria-hidden="true"></canvas>
-
-  <!-- Atmosphère : lueur d'ambiance, vignette, grain -->
-  <div class="atmos" aria-hidden="true">
-    <div class="atmos__glow"></div>
-    <div class="atmos__vignette"></div>
-    <div class="atmos__grain"></div>
+  <!-- 1. Loader -->
+  <div id="loader" aria-hidden="true">
+    <p class="loader-brand">Altaïr</p>
+    <div class="loader-track"><div id="loader-bar"></div></div>
+    <p id="loader-percent">000</p>
   </div>
 
+  <!-- 2. En-tête -->
   <header class="site-header">
-    <a class="wordmark" href="#hero" aria-label="Altaïr, retour en haut de page">
-      <svg class="wordmark__star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0 L13.6 10.4 L24 12 L13.6 13.6 L12 24 L10.4 13.6 L0 12 L10.4 10.4 Z" /></svg>
-      <span>Altaïr</span>
+    <a class="logo" href="#top" aria-label="Altaïr, retour en haut">
+      <svg class="logo__star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0 L13.4 10.6 L24 12 L13.4 13.4 L12 24 L10.6 13.4 L0 12 L10.6 10.6 Z"/></svg>
+      Altaïr
     </a>
-    <nav class="site-nav" aria-label="Chapitres">
-      <ol>
-        <li><a href="#etoile">L'étoile</a></li>
-        <li><a href="#notes">Les notes</a></li>
-        <li><a href="#flacon">Le flacon</a></li>
+    <nav aria-label="Chapitres">
+      <ul>
+        <li><a href="#ecrin">L'écrin</a></li>
+        <li><a href="#anatomie">Anatomie</a></li>
+        <li><a href="#notes">Notes</a></li>
+        <li><a href="#chiffres">Repères</a></li>
         <li><a href="#sillage">Sillage</a></li>
-        <li><a href="#cta">Découvrir</a></li>
-      </ol>
+      </ul>
     </nav>
-    <div class="progress" aria-hidden="true"><span></span></div>
+    <a class="header-cta" href="#decouvrir">Découvrir</a>
   </header>
 
-  <main id="main" tabindex="-1">
+  <!-- 3. Hero -->
+  <section class="hero" id="top" aria-labelledby="hero-title">
+    <div class="hero__sticky">
+      <canvas class="sky" data-sky="hero" aria-hidden="true"></canvas>
+      <svg class="aquila" viewBox="0 0 400 420" aria-hidden="true">
+        <g class="aquila__lines">
+          <path pathLength="1" d="M248 52 L226 150 L200 200 L178 242" />
+          <path pathLength="1" d="M200 200 L128 262 L62 312" />
+          <path pathLength="1" d="M200 200 L196 302 L252 336" />
+          <path pathLength="1" d="M248 52 L302 30" />
+        </g>
+        <g class="aquila__stars">
+          <circle cx="248" cy="52" r="1.6" /><circle cx="302" cy="30" r="1.2" />
+          <circle cx="226" cy="150" r="2" /><circle cx="178" cy="242" r="1.8" />
+          <circle cx="128" cy="262" r="1.5" /><circle cx="62" cy="312" r="1.4" />
+          <circle cx="196" cy="302" r="1.5" /><circle cx="252" cy="336" r="1.4" />
+          <circle class="aquila__halo" cx="200" cy="200" r="14" />
+          <circle class="aquila__altair" cx="200" cy="200" r="3.4" />
+        </g>
+        <text x="214" y="205">α Aquilae</text>
+      </svg>
 
-    <!-- 1. HERO -->
-    <section id="hero" class="hero" aria-labelledby="hero-title">
-      <div class="hero__content">
-        <img class="photo-fallback" src="assets/altair-ambiance.webp" width="1024" height="1024"
-             alt="Le flacon d'Altaïr, laque cuivrée et bouchon doré, dans une lumière chaude et tamisée." />
-        <p class="eyebrow" data-hero-fade>Parfums de Marly · Eau de Parfum</p>
-        <h1 id="hero-title" class="hero__title">
-          <span class="sr-only">Altaïr</span>
-          <span class="hero__letters" aria-hidden="true"><span class="hero__letter">A</span><span class="hero__letter">L</span><span class="hero__letter">T</span><span class="hero__letter">A</span><span class="hero__letter">Ï</span><span class="hero__letter">R</span></span>
-        </h1>
-        <p class="hero__tagline" data-hero-fade>L'éclat ambré d'une étoile qui ne dort jamais.</p>
-      </div>
-      <a class="scroll-cue" href="#etoile" data-hero-fade>
-        <span>Faites défiler</span>
-        <span class="scroll-cue__line" aria-hidden="true"></span>
-      </a>
-    </section>
-
-    <!-- 2. L'ÉTOILE -->
-    <section id="etoile" class="panel" aria-labelledby="etoile-title">
-      <div class="panel__content">
-        <p class="chapter" data-reveal><span>01</span> L'étoile</p>
-        <h2 id="etoile-title" class="display" data-split>L'étoile qui brûle <em>trop vite</em> pour dormir.</h2>
-        <p class="lead" data-reveal>
-          Altaïr est l'astre le plus brillant de la constellation de l'Aigle. Elle tourne sur
-          elle-même si vite qu'elle s'en trouve aplatie, comme une goutte d'or étirée par la nuit d'été.
-        </p>
-        <p data-reveal>
-          Le parfum en capture l'éclat : une chaleur épicée qui s'allume, une vanille qui irradie,
-          un sillage boisé qui persiste longtemps après votre passage.
-        </p>
-        <dl class="facts" data-reveal>
-          <div><dt>Désignation</dt><dd>α Aquilae</dd></div>
-          <div><dt>Distance</dt><dd>16,7 années-lumière</dd></div>
-          <div><dt>Magnitude</dt><dd>0,77</dd></div>
-        </dl>
+      <div class="hero__top">
+        <p class="section-label">Parfums de Marly — concept</p>
+        <p class="section-label">Eau de parfum · 75 ml</p>
       </div>
 
-      <figure class="constellation" aria-hidden="true">
-        <svg viewBox="0 0 400 420">
-          <g class="c-lines">
-            <path class="c-line" pathLength="1" d="M248 52 L226 150" />
-            <path class="c-line" pathLength="1" d="M226 150 L200 200" />
-            <path class="c-line" pathLength="1" d="M200 200 L178 242" />
-            <path class="c-line" pathLength="1" d="M200 200 L128 262 L62 312" />
-            <path class="c-line" pathLength="1" d="M200 200 L196 302 L252 336" />
-            <path class="c-line" pathLength="1" d="M248 52 L302 30" />
-          </g>
-          <g class="c-stars">
-            <circle cx="248" cy="52" r="2.4" />
-            <circle cx="302" cy="30" r="1.8" />
-            <circle cx="226" cy="150" r="3" />
-            <circle cx="178" cy="242" r="2.6" />
-            <circle cx="128" cy="262" r="2.2" />
-            <circle cx="62" cy="312" r="2" />
-            <circle cx="196" cy="302" r="2.2" />
-            <circle cx="252" cy="336" r="2" />
-            <circle class="c-altair-halo" cx="200" cy="200" r="16" />
-            <circle class="c-altair" cx="200" cy="200" r="5" />
-          </g>
-          <g class="c-labels">
-            <text x="216" y="206">Altaïr</text>
-            <text x="238" y="154">Tarazed</text>
-            <text x="190" y="252">Alshain</text>
-          </g>
-        </svg>
-      </figure>
+      <div class="hero__center">
+        <h1 class="hero-heading" id="hero-title" data-split="chars">Altaïr</h1>
+        <p class="hero-tagline" data-split="words">La chaleur d'une étoile, mise en flacon.</p>
+      </div>
+
+      <div class="hero__bottom">
+        <p class="section-label hero__coords"><span class="greek">α</span>&nbsp;Aql · 19h 50m 47s · +08° 52′</p>
+        <a class="scroll-cue" href="#contenu">
+          <span>Faire défiler</span>
+          <span class="scroll-cue__line" aria-hidden="true"></span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Film (canvas) -->
+  <div class="canvas-wrap">
+    <canvas id="canvas" role="img" aria-label="Film du produit : le flacon Altaïr couleur cognac et son écrin. L'écrin s'ouvre, le bouchon s'envole, puis le flacon se démonte pièce par pièce sur un papier crème."></canvas>
+  </div>
+
+  <!-- 5. Calque de couleur (zones accent et nuit) -->
+  <div id="dark-overlay" aria-hidden="true">
+    <canvas class="sky" data-sky="overlay"></canvas>
+  </div>
+
+  <!-- 7. Récit au scroll -->
+  <main id="contenu" class="scroll-container" tabindex="-1">
+
+    <section class="scroll-section align-left on-light" id="etoile"
+             data-enter="2" data-leave="11" data-animation="slide-left" data-chapter="L'étoile">
+      <div class="section-inner">
+        <p class="section-label">001 / L'étoile</p>
+        <h2 class="section-heading">La lumière <em>de l'Aigle</em></h2>
+        <p class="section-body">Altaïr est l'étoile la plus brillante de la constellation de l'Aigle, l'un des trois sommets du Triangle d'été. Son nom prête sa chaleur à une eau de parfum épicée, vanillée et ambrée.</p>
+        <p class="section-note">Distance · 16,7 années-lumière</p>
+      </div>
     </section>
 
-    <!-- 3. LES NOTES -->
-    <section id="notes" class="notes" aria-labelledby="notes-title">
-      <header class="notes__intro panel__content">
-        <p class="chapter" data-reveal><span>02</span> Les notes</p>
-        <h2 id="notes-title" class="display" data-split>Une pyramide <em>en trois lueurs.</em></h2>
-        <p data-reveal>Comme une étoile vue à travers l'atmosphère, le parfum change de couleur à mesure qu'il se révèle.</p>
-        <img class="photo-fallback" src="assets/altair-ingredients.webp" width="1080" height="1080" loading="lazy"
-             alt="Le flacon posé sur du bois, entouré de ses ingrédients : résines, bâtons de cannelle, gousses de vanille, copeaux de bois et baies roses." />
-      </header>
-
-      <article class="note" data-amb="#d27a3e" aria-labelledby="note-tete">
-        <div class="note__inner panel__content">
-          <p class="note__tier" data-reveal><span class="note__numeral">I</span> Notes de tête</p>
-          <h3 id="note-tete" class="note__title" data-split>L'étincelle</h3>
-          <ul class="note__list" data-reveal aria-label="Ingrédients de tête">
-            <li>Cannelle</li><li>Cardamome</li><li>Bergamote</li><li>Fleur d'oranger</li>
-          </ul>
-          <p data-reveal>Les épices s'embrasent comme un astre qui se lève : vives, dorées, presque solaires.</p>
-        </div>
-      </article>
-
-      <article class="note" data-amb="#e2b968" aria-labelledby="note-coeur">
-        <div class="note__inner panel__content">
-          <p class="note__tier" data-reveal><span class="note__numeral">II</span> Notes de cœur</p>
-          <h3 id="note-coeur" class="note__title" data-split>L'irradiation</h3>
-          <ul class="note__list" data-reveal aria-label="Ingrédients de cœur">
-            <li>Vanille Bourbon</li><li>Élémi</li>
-          </ul>
-          <p data-reveal>Une vanille crémeuse et résineuse, qui diffuse une chaleur de braise sous la peau.</p>
-        </div>
-      </article>
-
-      <article class="note" data-amb="#a8482a" aria-labelledby="note-fond">
-        <div class="note__inner panel__content">
-          <p class="note__tier" data-reveal><span class="note__numeral">III</span> Notes de fond</p>
-          <h3 id="note-fond" class="note__title" data-split>La traîne</h3>
-          <ul class="note__list" data-reveal aria-label="Ingrédients de fond">
-            <li>Praliné</li><li>Bois de gaïac</li><li>Ambroxan</li><li>Musc</li>
-          </ul>
-          <p data-reveal>Un fond gourmand, boisé, ambré, qui s'attarde jusqu'à l'aube.</p>
-          <p class="fineprint" data-reveal>Pyramide indicative, interprétée pour ce concept.</p>
-        </div>
-      </article>
+    <section class="scroll-section align-right on-light" id="ecrin"
+             data-enter="12.5" data-leave="20" data-animation="slide-right" data-chapter="L'écrin">
+      <div class="section-inner">
+        <p class="section-label">002 / L'écrin</p>
+        <h2 class="section-heading">Un écrin <em>couleur cognac</em></h2>
+        <p class="section-body">Carton grainé, armoiries argent en relief : le coffret s'entrouvre sur un intérieur d'un noir profond, comme un pan de ciel nocturne.</p>
+      </div>
     </section>
 
-    <!-- 4. LE FLACON (épinglé) -->
-    <section id="flacon" class="flacon" aria-labelledby="flacon-title">
-      <div class="flacon__inner panel__content">
-        <p class="chapter"><span>03</span> Le flacon</p>
-        <h2 id="flacon-title" class="display" data-split>Un objet qui <em>retient la lumière.</em></h2>
-        <img class="photo-fallback" src="assets/altair-flacon.webp" width="1080" height="1080" loading="lazy"
-             alt="Gros plan sur le flacon cuivré orné de deux chevaux cabrés en relief, et sur son bouchon triangulaire en métal poli." />
-        <div class="flacon__details">
-          <div class="flacon__detail">
-            <h3>La matière</h3>
-            <p>Une laque cuivrée, mate et veloutée, qui absorbe la lumière au lieu de la renvoyer.</p>
+    <section class="scroll-section align-left on-light" id="geste"
+             data-enter="21.5" data-leave="31" data-animation="rotate-in" data-chapter="Le geste">
+      <div class="section-inner">
+        <p class="section-label">003 / Le geste</p>
+        <h2 class="section-heading">Le capot <em>s'envole</em></h2>
+        <p class="section-body">Le capot d'argent se soulève d'un geste. Le flacon laqué cognac bascule et dévoile ses deux chevaux cabrés en relief, avec la date 1743.</p>
+      </div>
+    </section>
+
+    <section class="scroll-section align-right on-light is-pinned" id="anatomie"
+             data-enter="33" data-leave="49" data-animation="clip-reveal" data-chapter="Anatomie">
+      <div class="section-inner">
+        <p class="section-label">004 / Anatomie</p>
+        <h2 class="section-heading">Pièce <em>par pièce</em></h2>
+        <ol class="section-body anatomy">
+          <li><span class="anatomy__n">01</span><span><strong>Le capot</strong>Métal brossé, taillé en facettes.</span></li>
+          <li><span class="anatomy__n">02</span><span><strong>La pompe</strong>Bague, ressort et tube : une brume fine et régulière.</span></li>
+          <li><span class="anatomy__n">03</span><span><strong>Le flacon</strong>Verre laqué cognac, chevaux cabrés embossés.</span></li>
+          <li><span class="anatomy__n">04</span><span><strong>L'écrin</strong>Tiroir en carton grainé, blason argent.</span></li>
+        </ol>
+        <div class="anatomy__progress" aria-hidden="true"><i></i></div>
+      </div>
+    </section>
+
+    <section class="scroll-section align-left on-accent" id="notes"
+             data-enter="51" data-leave="55.5" data-animation="fade-up" data-chapter="Notes de tête">
+      <div class="section-inner">
+        <p class="section-label">005 / Notes de tête</p>
+        <h2 class="section-heading">Épices <em>incandescentes</em></h2>
+        <p class="section-body">La cannelle et la cardamome s'embrasent, la bergamote éclaire, une fleur d'oranger adoucit l'étincelle.</p>
+        <p class="section-note">Cannelle · Cardamome · Bergamote · Fleur d'oranger</p>
+      </div>
+    </section>
+
+    <section class="scroll-section align-right on-accent" id="coeur"
+             data-enter="56" data-leave="60.5" data-animation="scale-up" data-chapter="Notes de cœur">
+      <div class="section-inner">
+        <p class="section-label">006 / Notes de cœur</p>
+        <h2 class="section-heading">Un cœur <em>de vanille</em></h2>
+        <p class="section-body">La vanille Bourbon, crémeuse et sombre, s'enroule autour de l'élémi, une résine lumineuse aux accents citronnés.</p>
+        <p class="section-note">Vanille Bourbon · Élémi</p>
+      </div>
+    </section>
+
+    <section class="scroll-section align-left on-accent" id="fond"
+             data-enter="61" data-leave="65.5" data-animation="slide-left" data-chapter="Notes de fond">
+      <div class="section-inner">
+        <p class="section-label">007 / Notes de fond</p>
+        <h2 class="section-heading">Un fond <em>ambré</em></h2>
+        <p class="section-body">Praliné, bois de gaïac, ambroxan et musc : une chaleur qui reste sur la peau longtemps après le départ.</p>
+        <p class="section-note">Praliné · Gaïac · Ambroxan · Musc</p>
+      </div>
+    </section>
+
+    <!-- 6. Marquee (fixe pendant le récit, statique en mouvement réduit) -->
+    <div class="marquee-wrap" aria-hidden="true">
+      <p class="marquee-text">Altaïr <span>✦</span> épicé <span>✦</span> vanillé <span>✦</span> ambré <span>✦</span> Altaïr <span>✦</span> épicé <span>✦</span> vanillé <span>✦</span> ambré <span>✦</span></p>
+    </div>
+
+    <section class="scroll-section section-stats on-dark" id="chiffres"
+             data-enter="67" data-leave="77" data-animation="stagger-up" data-chapter="Repères">
+      <div class="section-inner">
+        <p class="section-label">008 / Repères</p>
+        <h2 class="section-heading">Quelques <em>chiffres</em></h2>
+        <div class="stats-grid">
+          <div class="stat">
+            <p class="stat-value"><span class="stat-number" data-value="75" data-decimals="0">75</span><span class="stat-suffix">ml</span></p>
+            <p class="stat-label">Le flacon</p>
           </div>
-          <div class="flacon__detail">
-            <h3>Le relief</h3>
-            <p>Deux chevaux cabrés, frappés dans la masse, qui ne se révèlent qu'à la lumière rasante.</p>
+          <div class="stat">
+            <p class="stat-value"><span class="stat-number" data-value="16.7" data-decimals="1">16,7</span><span class="stat-suffix">a.-l.</span></p>
+            <p class="stat-label">Distance de l'étoile</p>
           </div>
-          <div class="flacon__detail">
-            <h3>Le bouchon</h3>
-            <p>Triangulaire, en métal poli, gravé à l'intérieur. Il se détache comme une pièce de joaillerie.</p>
+          <div class="stat">
+            <p class="stat-value"><span class="stat-number" data-value="12" data-decimals="0">12</span><span class="stat-suffix">e</span></p>
+            <p class="stat-label">Étoile la plus brillante du ciel</p>
           </div>
-        </div>
-        <div class="flacon__meta" aria-hidden="true">
-          <p class="flacon__count"><span class="flacon__count-window"><span class="flacon__count-roll"><span>01</span><span>02</span><span>03</span></span></span> / 03</p>
-          <div class="flacon__bar"><span></span></div>
+          <div class="stat">
+            <p class="stat-value"><span class="stat-number" data-value="1743" data-decimals="0">1743</span></p>
+            <p class="stat-label">Date gravée sur le flacon</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- 5. SILLAGE (défilement horizontal) -->
-    <section id="sillage" class="sillage" aria-labelledby="sillage-title">
-      <div class="sillage__head panel__content">
-        <p class="chapter"><span>04</span> Sillage</p>
-        <h2 id="sillage-title" class="display" data-split>Ce qu'il laisse <em>derrière lui.</em></h2>
-      </div>
-      <div class="sillage__track">
-        <figure class="mood">
-          <span class="mood__index" aria-hidden="true">01</span>
-          <blockquote><p>« Il entre dans la pièce une seconde avant vous. »</p></blockquote>
-          <figcaption>Soirée d'hiver, manteau encore froid</figcaption>
-        </figure>
-        <figure class="mood">
-          <span class="mood__index" aria-hidden="true">02</span>
-          <blockquote><p>« Une chaleur qui se porte comme du cachemire. »</p></blockquote>
-          <figcaption>Feu de cheminée, bois de gaïac</figcaption>
-        </figure>
-        <figure class="mood">
-          <span class="mood__index" aria-hidden="true">03</span>
-          <blockquote><p>« La vanille, dans sa version nocturne. »</p></blockquote>
-          <figcaption>Bar feutré, minuit passé</figcaption>
-        </figure>
-        <figure class="mood">
-          <span class="mood__index" aria-hidden="true">04</span>
-          <blockquote><p>« Ce qui reste quand la lumière s'éteint. »</p></blockquote>
-          <figcaption>L'aube, sur la peau</figcaption>
-        </figure>
-        <div class="mood mood--facts">
-          <dl>
-            <div><dt>Sillage</dt><dd>Enveloppant</dd></div>
-            <div><dt>Tenue</dt><dd>Longue</dd></div>
-            <div><dt>Saison</dt><dd>Automne · Hiver</dd></div>
-            <div><dt>Moment</dt><dd>Le soir</dd></div>
-          </dl>
-        </div>
+    <section class="scroll-section align-right on-veil" id="sillage"
+             data-enter="79" data-leave="87" data-animation="fade-up" data-chapter="Sillage">
+      <div class="section-inner">
+        <p class="section-label">009 / Sillage</p>
+        <blockquote class="section-heading quote">«&nbsp;Une nuit d'été <em>qui ne finit pas.&nbsp;»</em></blockquote>
+        <p class="section-body">Pour les soirs qui s'étirent, les terrasses encore chaudes et les rendez-vous tardifs : Altaïr laisse derrière lui un halo d'ambre et de vanille.</p>
       </div>
     </section>
 
-    <!-- 6. CTA -->
-    <section id="cta" class="cta" aria-labelledby="cta-title">
-      <div class="cta__content">
-        <p class="chapter chapter--center" data-reveal><span>05</span> L'invitation</p>
-        <h2 id="cta-title" class="display display--center" data-split>Suivez <em>l'étoile.</em></h2>
-        <p class="cta__text" data-reveal>Une eau de parfum ambrée, épicée et vanillée, pour les nuits qui commencent tard.</p>
-        <div class="magnetic" data-reveal>
-          <a class="btn-glow" href="#notes">
-            <span class="btn-glow__label">Découvrir Altaïr</span>
-            <svg class="btn-glow__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L13.2 10.8 L22 12 L13.2 13.2 L12 22 L10.8 13.2 L2 12 L10.8 10.8 Z" /></svg>
+    <section class="scroll-section align-left on-light section-cta" id="decouvrir"
+             data-enter="89" data-leave="100" data-animation="scale-up" data-persist="true" data-chapter="Découvrir">
+      <div class="section-inner">
+        <p class="section-label">010 / Découvrir</p>
+        <h2 class="section-heading">L'étoile, <em>à fleur de peau</em></h2>
+        <p class="section-body">Altaïr, eau de parfum, Parfums de Marly. Un concept de page imaginé autour d'un film produit.</p>
+        <div class="cta-row">
+          <a class="cta-button" href="#notes">
+            <span>Découvrir les notes</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L13.2 10.8 L22 12 L13.2 13.2 L12 22 L10.8 13.2 L2 12 L10.8 10.8 Z"/></svg>
           </a>
+          <a class="cta-link" href="#top">Revoir le film</a>
         </div>
+        <p class="section-legal">Concept de portfolio non officiel, sans affiliation avec Parfums de Marly. Altaïr et Parfums de Marly sont des marques de leurs propriétaires respectifs. Film produit : droits réservés à ses auteurs.</p>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <p>
-      Concept de portfolio non officiel, sans affiliation avec Parfums de Marly.
-      Altaïr et Parfums de Marly sont des marques de leurs propriétaires respectifs.
-    </p>
-    <p>Photographies du produit : droits réservés à leurs auteurs. Animations et effets réalisés en code avec Three.js, GSAP et Lenis.</p>
-  </footer>
+  <!-- Repère de chapitre -->
+  <div class="chapter" aria-hidden="true">
+    <span class="chapter__num">01</span>
+    <span class="chapter__line"><i></i></span>
+    <span class="chapter__name">L'étoile</span>
+  </div>
+
+  <div class="grain" aria-hidden="true"></div>
+
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script defer src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script defer src="main.js"></script>
 </body>
 </html>
