@@ -47,18 +47,18 @@ Le film se termine à 50 % du scroll (`FRAME_SPEED = 2`), le reste du récit jou
 
 ## Le film
 
-La vidéo d'origine (1924 × 1076, 6 s, 24 images par seconde) est d'abord interpolée à 48 images par seconde, pour qu'un petit mouvement de scroll fasse toujours avancer le film d'une image, puis encodée en WebP avec ffmpeg :
+La vidéo d'origine (1924 × 1076, 6 s, 24 images par seconde) est d'abord interpolée à 48 images par seconde, pour qu'un petit mouvement de scroll fasse toujours avancer le film d'une image, puis encodée en WebP avec ffmpeg. On garde toute la définition de la vidéo (1920 px, après 2 px rognés de chaque côté, sans rééchantillonnage) et on accentue légèrement les détails (`cas`), car sur un grand écran l'image est de toute façon agrandie :
 
 ```bash
 # 1. images intermédiaires calculées par interpolation de mouvement
-ffmpeg -i video.mp4 -vf "scale=1440:-2:flags=lanczos,minterpolate=fps=48:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1" png/f_%04d.png
+ffmpeg -i video.mp4 -vf "crop=1920:1076:2:0,minterpolate=fps=48:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1" png/f_%04d.png
 # 2. WebP ordinateur et mobile
-ffmpeg -framerate 48 -i png/f_%04d.png -c:v libwebp -quality 66 -compression_level 6 frames/desktop/frame_%04d.webp
-ffmpeg -framerate 48 -i png/f_%04d.png -vf "scale=960:-2:flags=lanczos" -c:v libwebp -quality 62 -compression_level 6 frames/mobile/frame_%04d.webp
+ffmpeg -framerate 48 -i png/f_%04d.png -vf "cas=strength=0.8" -c:v libwebp -quality 76 -compression_level 6 frames/desktop/frame_%04d.webp
+ffmpeg -framerate 48 -i png/f_%04d.png -vf "scale=960:-2:flags=lanczos,cas=strength=0.8" -c:v libwebp -quality 66 -compression_level 6 frames/mobile/frame_%04d.webp
 ```
 
-- `frames/desktop/` : 287 images de 1440 px, 6,1 Mo au total
-- `frames/mobile/` : 287 images de 960 px, 3,3 Mo, chargées sous 768 px de large
+- `frames/desktop/` : 287 images de 1920 px, 11,6 Mo au total (1,9 Mo pour les 48 premières, attendues par l'écran de chargement)
+- `frames/mobile/` : 287 images de 960 px, 4,2 Mo, chargées sous 768 px de large
 - `frames/motion.json` (5 Ko) : pour chaque paire d'images voisines, le rectangle qui bouge de l'une à l'autre (en millièmes de l'image ; écart de luminosité supérieur à 8 sur une version réduite à 360 px, plus 6 % de marge)
 - `frames/edges.png` (73 Ko) : pour chaque image, une vignette de 12 × 27 px dont la première et la dernière colonne et la première et la dernière ligne contiennent la couleur moyenne des bords. Le canvas s'en sert pour prolonger le papier et le sol au-delà de l'image. Elle se régénère à partir des PNG de l'étape 1 (24 vignettes par ligne, bords = moyenne des 18 px extérieurs).
 
@@ -70,7 +70,7 @@ Pour changer de vidéo : remplacer les images en gardant la numérotation, rég�
 - `index.html` appelle `style.css` et `main.js` avec un numéro de version (`?v=…`) : à changer à chaque mise en ligne pour que les navigateurs ne gardent pas l'ancienne version en cache
 - Les images sont gardées compressées en mémoire et décodées hors du fil principal (`createImageBitmap`) dans une fenêtre glissante autour de la position courante (48 images sur ordinateur, 32 sur mobile, surtout dans le sens du scroll) ; les images qui sortent de la fenêtre sont libérées
 - L'image affichée rattrape la position du scroll en douceur, sans sauter d'image. Quand le film avance de moins d'une image par rafraîchissement (un cran de molette sur ordinateur n'avance que de 4 images), l'image suivante apparaît en transparence, seulement dans la zone qui bouge : le mouvement reste continu. À l'arrêt, le film se pose sur une seule image nette
-- Canvas opaque, jamais plus défini que les images source (pixel ratio 1,5 au plus ; sur un écran plus large que 1440 px, le navigateur l'agrandit lui-même) ; le fond autour de l'image est calculé en basse définition puis agrandi ; rendu seulement quand le scroll bouge
+- Canvas opaque, juste assez défini pour poser l'image source pixel pour pixel (pixel ratio 1,5 au plus) : sur un écran plus grand, le navigateur l'agrandit lui-même. Un canvas à la pleine définition de l'écran, lissage « high », ne gagne rien de visible sur un écran 4K et coûte trois fois plus de pixels ; le fond autour de l'image est calculé en basse définition puis agrandi ; rendu seulement quand le scroll bouge
 - `prefers-reduced-motion` : le film et la visite restent (c'est le cœur de la page, et ce réglage est souvent coupé sur PC sans que l'utilisateur le sache) ; seules les petites animations CSS (indicateur de scroll, survols) sont coupées
 - Version statique (sections dans le flux normal, une image fixe par chapitre, compteurs affichés directement) seulement si `main.js` plante, ou s'il n'a pas démarré au bout de 8 s ; dans ce dernier cas, le film reprend dès que les scripts arrivent
 - HTML sémantique, lien d'évitement, focus visible ; au clavier, un lien d'une section masquée fait défiler jusqu'à elle ; le canvas a une description textuelle
