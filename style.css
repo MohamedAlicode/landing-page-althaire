@@ -747,6 +747,40 @@ html:not(.motion) .on-veil { background: rgba(236, 230, 214, 0.86); }
   font-style: normal;
 }
 
+/* Formats : trois flacons au trait, à l'échelle de leur contenance */
+.formats {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.8rem;
+  margin-top: 2rem;
+  padding: 0;
+  list-style: none;
+}
+
+.formats li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.formats svg {
+  width: calc(1.45rem * var(--h));
+  height: calc(2.22rem * var(--h));
+  fill: none;
+  stroke: var(--cognac);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.formats span {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cognac);
+}
+
 /* CTA */
 .cta-row {
   display: flex;
@@ -1024,6 +1058,10 @@ html:not(.motion) .on-veil { background: rgba(236, 230, 214, 0.86); }
 
   .quote { font-size: clamp(2.1rem, 9vw, 2.8rem); }
 
+  .formats { justify-content: center; gap: 1.3rem; margin-top: 1.1rem; }
+  .formats li { flex-direction: row; align-items: flex-end; gap: 0.45rem; }
+  .formats svg { width: calc(0.82rem * var(--h)); height: calc(1.26rem * var(--h)); }
+  .formats span { font-size: 0.62rem; }
   .cta-row { justify-content: center; }
   .section-legal { margin: 1.8rem auto 0; font-size: 0.68rem; }
 

@@ -51,10 +51,12 @@
       [0.330, 0.575, 0.29, 0.84, 0.50],
       [0.490, 0.575, 0.29, 0.84, 0.50],
       [0.510, 0.575, 0.50, 1.04, 0.50],
-      [0.770, 0.575, 0.50, 1.14, 0.50],
-      [0.790, 0.575, 0.30, 0.90, 0.50],
-      [0.870, 0.575, 0.30, 0.90, 0.50],
-      [0.890, 0.575, 0.70, 0.88, 0.50],
+      [0.750, 0.575, 0.50, 1.14, 0.50],
+      [0.766, 0.575, 0.68, 0.96, 0.50],
+      [0.835, 0.575, 0.68, 0.96, 0.50],
+      [0.850, 0.575, 0.30, 0.90, 0.50],
+      [0.905, 0.575, 0.30, 0.90, 0.50],
+      [0.920, 0.575, 0.70, 0.88, 0.50],
       [1.000, 0.575, 0.68, 0.92, 0.50],
     ],
     mobile: [
@@ -68,8 +70,8 @@
       [0.330, 0.575, 0.50, 0.74, 0.30],
       [0.490, 0.575, 0.50, 0.74, 0.30],
       [0.510, 0.575, 0.50, 0.95, 0.36],
-      [0.870, 0.575, 0.50, 0.90, 0.30],
-      [0.890, 0.575, 0.50, 0.74, 0.25],
+      [0.905, 0.575, 0.50, 0.90, 0.30],
+      [0.920, 0.575, 0.50, 0.74, 0.25],
       [1.000, 0.575, 0.50, 0.74, 0.25],
     ],
   };
@@ -84,14 +86,16 @@
     [0.508, ...ACCENT, 0.93],
     [0.655, ...ACCENT, 0.93],
     [0.667, ...NIGHT, 0.92],
-    [0.773, ...NIGHT, 0.92],
-    [0.785, ...VEIL, 0.84],
-    [0.874, ...VEIL, 0.84],
-    [0.886, ...VEIL, 0],
+    [0.752, ...NIGHT, 0.92],
+    [0.764, ...NIGHT, 0],      // le blason : le flacon à découvert
+    [0.837, ...VEIL, 0],
+    [0.849, ...VEIL, 0.84],
+    [0.906, ...VEIL, 0.84],
+    [0.918, ...VEIL, 0],
   ];
-  const STARS = [[0.655, 0], [0.668, 1], [0.772, 1], [0.784, 0]];
-  const MARQUEE = [[0.494, 0], [0.51, 1], [0.862, 1], [0.876, 0]];
-  const ZONES = [[0, 'light'], [0.503, 'accent'], [0.661, 'dark'], [0.779, 'light']];
+  const STARS = [[0.655, 0], [0.668, 1], [0.751, 1], [0.763, 0]];
+  const MARQUEE = [[0.494, 0], [0.51, 1], [0.751, 1], [0.763, 0], [0.837, 0], [0.849, 1], [0.894, 1], [0.908, 0]];  // pas sur le blason
+  const ZONES = [[0, 'light'], [0.503, 'accent'], [0.661, 'dark'], [0.758, 'light']];
   const INK = { dark: '#f5eddf', accent: '#f5eddf', light: '#22160f' };
   const STROKE = {
     dark: 'rgba(216, 181, 122, 0.5)',
@@ -641,7 +645,7 @@
     });
 
     // Entrées de section : un type d'animation différent par section
-    const KIDS = '.section-label, .section-heading, .section-body, .section-note, .stat, .cta-row, .section-legal, .anatomy__progress';
+    const KIDS = '.section-label, .section-heading, .section-body, .section-note, .stat, .formats, .cta-row, .section-legal, .anatomy__progress';
     sections.forEach((s) => {
       const kids = $$(KIDS, s.el);
       const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out' } });
@@ -855,7 +859,7 @@
     // environ 31 images par seconde (la vidéo en compte 48), assez vite pour rester
     // fluide. À chaque arrêt, l'image se pose, nette, le temps de lire.
     const PACE = 0.055;
-    const HOLD = { anatomie: 1.5, chiffres: 5.5 };  // secondes d'arrêt, 4 par défaut ; anatomie : à chaque pièce
+    const HOLD = { anatomie: 1.5, chiffres: 5.5, blason: 7.5 };  // secondes d'arrêt, 4 par défaut ; anatomie : à chaque pièce
     let tour = [];
     let tourEnd = 0;
     let toured = false;
