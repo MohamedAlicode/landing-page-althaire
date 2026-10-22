@@ -7,8 +7,9 @@ La page est construite autour d'un film produit : la vidéo est découpée en 28
 
 - `index.html`, `style.css`, `main.js` : aucun build
 - Canvas 2D : séquence d'images (`frames/`), une image nette par position de scroll, bords prolongés et adoucis pour que le film se fonde dans la page
-- [GSAP](https://gsap.com/) 3.12.5 + ScrollTrigger (cdnjs) : ouverture en cercle, entrées de section, compteurs, zones de couleur
-- [Lenis](https://lenis.darkroom.engineering/) 1.1.13 (unpkg) : smooth scroll
+- [GSAP](https://gsap.com/) 3.12.5 + ScrollTrigger : ouverture en cercle, entrées de section, compteurs, zones de couleur
+- [Lenis](https://lenis.darkroom.engineering/) 1.1.13 : smooth scroll
+- Ces bibliothèques sont copiées dans `vendor/` et servies avec le site : un bloqueur ou un CDN lent ne peut pas priver la page du film
 - Polices Google : Bodoni Moda (titres), Instrument Sans (texte), DM Mono (repères)
 
 ## Lancer en local
@@ -22,11 +23,11 @@ npx serve .
 python3 -m http.server 8000
 ```
 
-Puis ouvrir http://localhost:3000 (serve) ou http://localhost:8000 (Python). Une connexion internet est nécessaire pour les CDN et Google Fonts.
+Puis ouvrir http://localhost:3000 (serve) ou http://localhost:8000 (Python). Une connexion internet n'est nécessaire que pour Google Fonts.
 
 ## Lecture automatique
 
-À l'arrivée, la page se déroule seule : quelques secondes sur le titre, l'ouverture du film, puis chaque chapitre traversé lentement (6 s de lecture, 9 s pour l'anatomie, 7 s pour les repères), soit environ 1 min 15 en tout. Le bouton de l'en-tête met en pause, relance depuis la position courante, ou rejoue depuis le début une fois la visite terminée. La molette, le doigt, le clavier ou un lien laissent la main à l'utilisateur ; la visite reprend d'elle-même 5 s après son dernier geste, sauf s'il l'a mise en pause. Les durées se règlent dans `READ` et `buildTour()` (`main.js`). Pas de lecture automatique en mouvement réduit.
+À l'arrivée, la page se déroule seule : quelques secondes sur le titre, l'ouverture du film, puis chaque chapitre traversé lentement (6 s de lecture, 9 s pour l'anatomie, 7 s pour les repères), soit environ 1 min 15 en tout. Le bouton de l'en-tête met en pause, relance depuis la position courante, ou rejoue depuis le début une fois la visite terminée. La molette, le doigt, le clavier ou un lien laissent la main à l'utilisateur ; la visite reprend d'elle-même 5 s après son dernier geste, sauf s'il l'a mise en pause. Les durées se règlent dans `READ` et `buildTour()` (`main.js`). La visite démarre aussi quand le système demande moins d'animations (réglage « Effets d'animation » de Windows) : le bouton Pause est là pour l'arrêter.
 
 ## Structure du récit
 
@@ -70,8 +71,8 @@ Pour changer de vidéo : remplacer les images en gardant la numérotation, rég�
 - Les images sont gardées compressées en mémoire et décodées hors du fil principal (`createImageBitmap`) dans une fenêtre glissante autour de la position courante (48 images sur ordinateur, 32 sur mobile, surtout dans le sens du scroll) ; les images qui sortent de la fenêtre sont libérées
 - L'image affichée rattrape la position du scroll en douceur, sans sauter d'image. Quand le film avance de moins d'une image par rafraîchissement (un cran de molette sur ordinateur n'avance que de 4 images), l'image suivante apparaît en transparence, seulement dans la zone qui bouge : le mouvement reste continu. À l'arrêt, le film se pose sur une seule image nette
 - Canvas opaque, jamais plus défini que les images source (pixel ratio 1,5 au plus ; sur un écran plus large que 1440 px, le navigateur l'agrandit lui-même) ; le fond autour de l'image est calculé en basse définition puis agrandi ; rendu seulement quand le scroll bouge
-- `prefers-reduced-motion` : pas de smooth scroll ni d'animation, sections dans le flux normal, une image fixe par chapitre, compteurs affichés directement
-- Si un CDN ne répond pas, la page bascule sur cette version statique
+- `prefers-reduced-motion` : le film et la visite restent (c'est le cœur de la page, et ce réglage est souvent coupé sur PC sans que l'utilisateur le sache) ; seules les petites animations CSS (indicateur de scroll, survols) sont coupées
+- Version statique (sections dans le flux normal, une image fixe par chapitre, compteurs affichés directement) seulement si `main.js` plante, ou s'il n'a pas démarré au bout de 8 s ; dans ce dernier cas, le film reprend dès que les scripts arrivent
 - HTML sémantique, lien d'évitement, focus visible ; au clavier, un lien d'une section masquée fait défiler jusqu'à elle ; le canvas a une description textuelle
 - Mobile : texte centré en bas sur un voile crème, film dans la moitié haute
 

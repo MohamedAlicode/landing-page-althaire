@@ -10,8 +10,7 @@
     (function () {
       var d = document.documentElement;
       d.classList.add('js');
-      var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (!reduce) d.classList.add('motion');
+      d.classList.add('motion');
       // Filet de sécurité : si les scripts ne démarrent pas, on rend la page lisible sans animation
       setTimeout(function () {
         if (!window.__altairReady) { d.classList.remove('motion', 'is-loading'); d.classList.add('no-film'); }
@@ -252,9 +251,9 @@
     <span class="chapter__name">L'étoile</span>
   </div>
 
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-  <script defer src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
-  <script defer src="main.js?v=2026-10-22"></script>
+  <script defer src="vendor/gsap.min.js?v=3.12.5"></script>
+  <script defer src="vendor/ScrollTrigger.min.js?v=3.12.5"></script>
+  <script defer src="vendor/lenis.min.js?v=1.1.13"></script>
+  <script defer src="main.js?v=2026-10-22b"></script>
 </body>
 </html>

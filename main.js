@@ -16,10 +16,15 @@
   const smooth = (t) => t * t * (3 - 2 * t);
 
   const mobileMQ = matchMedia('(max-width: 767px)');
-  const canMotion = root.classList.contains('motion') &&
-    !matchMedia('(prefers-reduced-motion: reduce)').matches &&
-    'gsap' in window && 'ScrollTrigger' in window && 'Lenis' in window;
-  if (!canMotion) root.classList.remove('motion', 'is-loading');
+  // Le film tourne pour tous, y compris quand le système demande moins
+  // d'animations (réglage souvent coupé sur PC) : le bouton Pause l'arrête.
+  // Si le filet de sécurité de index.html a déjà basculé en version statique
+  // (scripts lents), on revient au film.
+  const canMotion = 'gsap' in window && 'ScrollTrigger' in window && 'Lenis' in window;
+  if (canMotion) {
+    root.classList.remove('no-film');
+    root.classList.add('motion', 'is-loading');
+  } else root.classList.remove('motion', 'is-loading');
 
   /* ------------------------------------------------------------------------
      Réglages du film
