@@ -51,12 +51,12 @@
       [0.330, 0.575, 0.29, 0.84, 0.50],
       [0.490, 0.575, 0.29, 0.84, 0.50],
       [0.510, 0.575, 0.50, 1.04, 0.50],
-      [0.750, 0.575, 0.50, 1.14, 0.50],
-      [0.766, 0.575, 0.68, 0.96, 0.50],
-      [0.835, 0.575, 0.68, 0.96, 0.50],
-      [0.850, 0.575, 0.30, 0.90, 0.50],
-      [0.905, 0.575, 0.30, 0.90, 0.50],
-      [0.920, 0.575, 0.70, 0.88, 0.50],
+      [0.740, 0.575, 0.50, 1.14, 0.50],
+      [0.756, 0.575, 0.68, 0.96, 0.50],
+      [0.815, 0.575, 0.68, 0.96, 0.50],
+      [0.830, 0.575, 0.30, 0.90, 0.50],
+      [0.875, 0.575, 0.30, 0.90, 0.50],
+      [0.905, 0.575, 0.70, 0.88, 0.50],  // sous le calque nuit du « porter »
       [1.000, 0.575, 0.68, 0.92, 0.50],
     ],
     mobile: [
@@ -70,8 +70,8 @@
       [0.330, 0.575, 0.50, 0.74, 0.30],
       [0.490, 0.575, 0.50, 0.74, 0.30],
       [0.510, 0.575, 0.50, 0.95, 0.36],
-      [0.905, 0.575, 0.50, 0.90, 0.30],
-      [0.920, 0.575, 0.50, 0.74, 0.25],
+      [0.890, 0.575, 0.50, 0.90, 0.30],
+      [0.945, 0.575, 0.50, 0.74, 0.25],
       [1.000, 0.575, 0.50, 0.74, 0.25],
     ],
   };
@@ -86,16 +86,18 @@
     [0.508, ...ACCENT, 0.93],
     [0.655, ...ACCENT, 0.93],
     [0.667, ...NIGHT, 0.92],
-    [0.752, ...NIGHT, 0.92],
-    [0.764, ...NIGHT, 0],      // le blason : le flacon à découvert
-    [0.837, ...VEIL, 0],
-    [0.849, ...VEIL, 0.84],
-    [0.906, ...VEIL, 0.84],
-    [0.918, ...VEIL, 0],
+    [0.742, ...NIGHT, 0.92],
+    [0.754, ...NIGHT, 0],      // le blason : le flacon à découvert
+    [0.817, ...VEIL, 0],
+    [0.829, ...VEIL, 0.84],
+    [0.876, ...VEIL, 0.84],
+    [0.888, ...NIGHT, 0.92],   // le porter : retour de la nuit
+    [0.946, ...NIGHT, 0.92],
+    [0.958, ...NIGHT, 0],
   ];
-  const STARS = [[0.655, 0], [0.668, 1], [0.751, 1], [0.763, 0]];
-  const MARQUEE = [[0.494, 0], [0.51, 1], [0.751, 1], [0.763, 0], [0.837, 0], [0.849, 1], [0.894, 1], [0.908, 0]];  // pas sur le blason
-  const ZONES = [[0, 'light'], [0.503, 'accent'], [0.661, 'dark'], [0.758, 'light']];
+  const STARS = [[0.655, 0], [0.668, 1], [0.741, 1], [0.753, 0], [0.878, 0], [0.89, 1], [0.945, 1], [0.957, 0]];
+  const MARQUEE = [[0.494, 0], [0.51, 1], [0.741, 1], [0.753, 0], [0.817, 0], [0.829, 1], [0.866, 1], [0.88, 0]];  // pas sur le blason ni le porter
+  const ZONES = [[0, 'light'], [0.503, 'accent'], [0.661, 'dark'], [0.748, 'light'], [0.882, 'dark'], [0.952, 'light']];
   const INK = { dark: '#f5eddf', accent: '#f5eddf', light: '#22160f' };
   const STROKE = {
     dark: 'rgba(216, 181, 122, 0.5)',
@@ -196,16 +198,44 @@
     return g;
   }
 
+  const settled = new Uint8Array(FRAME_COUNT);  // téléchargement terminé (ou abandonné)
+  let filmLoaded = 0;  // images arrivées d'affilée depuis le début du film
+  let framesIn = 0;    // images reçues, en comptant les parts d'images en cours
+  let onBytes = null;  // écran d'intro : suit le téléchargement octet par octet
+
+  // Lit la réponse morceau par morceau : la barre d'intro avance en continu,
+  // même quand plusieurs images arrivent en même temps
+  async function readBlob(res) {
+    const size = Number(res.headers.get('content-length'));
+    if (!onBytes || !size || !res.body) return res.blob();
+    const reader = res.body.getReader();
+    const chunks = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      got += value.length;
+      framesIn += value.length / size;
+      if (onBytes) onBytes();
+    }
+    framesIn -= got / size;  // compté en entier une fois l'image arrivée
+    return new Blob(chunks, { type: res.headers.get('content-type') || 'image/webp' });
+  }
+
   async function fetchFrame(i) {
     if (sources[i]) return;
     const url = frameSrc(i);
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(String(res.status));
-      sources[i] = await res.blob();
+      sources[i] = await readBlob(res);
     } catch (e) {
       sources[i] = await loadImage(url);  // repli (fichier ouvert sans serveur)
     }
+    settled[i] = 1;
+    framesIn++;
+    while (filmLoaded < FRAME_COUNT && settled[filmLoaded]) filmLoaded++;
   }
 
   // Ordre de décodage : l'image visée, puis surtout celles qui arrivent dans le sens du scroll
@@ -510,6 +540,70 @@
   }
 
   /* ------------------------------------------------------------------------
+     Langue : le français est dans la page, l'anglais dans i18n.js. Le choix
+     est mémorisé ; à défaut, la langue du navigateur (voir index.html).
+     ------------------------------------------------------------------------ */
+
+  const DICT = window.ALTAIR_I18N || null;
+  const UI_FR = {
+    'play.playing': 'Pause',
+    'play.paused': 'Lecture',
+    'play.ended': 'Revoir',
+    'play.playing.label': 'Mettre la visite automatique en pause',
+    'play.paused.label': 'Reprendre la visite automatique',
+    'play.ended.label': 'Revoir la visite depuis le début',
+  };
+  const metaDesc = $('meta[name="description"]');
+  const textEls = $$('[data-i18n]');
+  const labelEls = $$('[data-i18n-label]');
+  const original = { ...UI_FR, 'meta.title': document.title, 'meta.description': metaDesc ? metaDesc.content : '' };
+  textEls.forEach((el) => { original[el.dataset.i18n] = el.dataset.split ? el.textContent.trim() : el.innerHTML; });
+  labelEls.forEach((el) => { original[el.dataset.i18nLabel] = el.getAttribute('aria-label'); });
+  $$('[data-chapter]').forEach((el) => { original[`chapter.${el.id}`] = el.dataset.chapter; });
+
+  let lang = DICT && root.dataset.lang === 'en' ? 'en' : 'fr';
+  const langHooks = [];
+  const t = (key) => (lang === 'en' && DICT.en[key]) || original[key] || '';
+  const formatNumber = (v, decimals) => {
+    const n = v.toFixed(decimals);
+    return lang === 'fr' ? n.replace('.', ',') : n;
+  };
+
+  function applyLang(next, resplit) {
+    lang = next;
+    root.lang = lang;
+    root.dataset.lang = lang;
+    document.title = t('meta.title');
+    if (metaDesc) metaDesc.content = t('meta.description');
+    textEls.forEach((el) => {
+      const key = el.dataset.i18n;
+      if (!el.dataset.split) el.innerHTML = t(key);
+      else if (resplit) { el.textContent = t(key); splitText(el); }
+      else el.textContent = t(key);
+    });
+    labelEls.forEach((el) => el.setAttribute('aria-label', t(el.dataset.i18nLabel)));
+    $$('.stat-number').forEach((el) => {
+      el.textContent = formatNumber(parseFloat(el.textContent.replace(',', '.')) || 0, parseInt(el.dataset.decimals || '0', 10));
+    });
+    $$('.lang button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    langHooks.forEach((f) => f());
+  }
+
+  const langSwitch = $('.lang');
+  if (lang === 'en') applyLang('en', false);
+  else root.dataset.lang = 'fr';
+  if (DICT && langSwitch) {
+    langSwitch.hidden = false;
+    $$('button', langSwitch).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    langSwitch.addEventListener('click', (e) => {
+      const b = e.target instanceof Element && e.target.closest('button[data-lang]');
+      if (!b || b.dataset.lang === lang) return;
+      try { localStorage.setItem('altair-lang', b.dataset.lang); } catch (err) { /* stockage indisponible */ }
+      applyLang(b.dataset.lang, true);
+    });
+  }
+
+  /* ------------------------------------------------------------------------
      Texte découpé (lettres / mots), lisible par les lecteurs d'écran
      ------------------------------------------------------------------------ */
 
@@ -569,15 +663,12 @@
     leave: parseFloat(el.dataset.leave) / 100,
     persist: el.dataset.persist === 'true',
     type: el.dataset.animation,
-    chapter: el.dataset.chapter,
     zone: el.classList.contains('on-accent') ? 'accent' : el.classList.contains('on-dark') ? 'dark' : 'light',
     items: $$('.anatomy li', el),
     bar: $('.anatomy__progress i', el),
     active: false,
     tl: null,
   }));
-
-  const formatNumber = (v, decimals) => v.toFixed(decimals).replace('.', ',');
 
   /* ------------------------------------------------------------------------
      Version animée
@@ -645,7 +736,7 @@
     });
 
     // Entrées de section : un type d'animation différent par section
-    const KIDS = '.section-label, .section-heading, .section-body, .section-note, .stat, .formats, .cta-row, .section-legal, .anatomy__progress';
+    const KIDS = '.section-label, .section-heading, .section-body, .section-note, .stat, .wear-block, .formats, .cta-row, .section-legal, .anatomy__progress';
     sections.forEach((s) => {
       const kids = $$(KIDS, s.el);
       const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out' } });
@@ -689,13 +780,20 @@
           onUpdate: () => { el.textContent = formatNumber(o.v, decimals); },
         }, 0.3);
       });
+      // Le porter : les étoiles se remplissent, les notes s'étirent dans le temps
+      const fills = $$('.stars > i', s.el);
+      if (fills.length) tl.from(fills, { width: 0, duration: 0.9, stagger: 0.07, ease: 'power2.out' }, 0.6);
+      const spans = $$('.wear-time__bar i', s.el);
+      if (spans.length) tl.from(spans, { scaleX: 0, transformOrigin: '0% 50%', duration: 1.2, stagger: 0.16, ease: 'power3.inOut' }, 0.75);
       s.tl = tl;
       s.el.setAttribute('tabindex', '-1');
     });
 
+    let chapterOf = null;
     function setChapter(s) {
+      chapterOf = s;
       chapterNum.textContent = String(s.index).padStart(2, '0');
-      chapterName.textContent = s.chapter;
+      chapterName.textContent = t(`chapter.${s.el.id}`);
       gsap.fromTo([chapterNum, chapterName], { yPercent: 70, opacity: 0 },
         { yPercent: 0, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'power3.out', overwrite: true });
     }
@@ -859,7 +957,7 @@
     // environ 31 images par seconde (la vidéo en compte 48), assez vite pour rester
     // fluide. À chaque arrêt, l'image se pose, nette, le temps de lire.
     const PACE = 0.055;
-    const HOLD = { anatomie: 1.5, chiffres: 5.5, blason: 7.5 };  // secondes d'arrêt, 4 par défaut ; anatomie : à chaque pièce
+    const HOLD = { anatomie: 1.5, chiffres: 5.5, blason: 7.5, porter: 6.5 };  // secondes d'arrêt, 4 par défaut ; anatomie : à chaque pièce
     let tour = [];
     let tourEnd = 0;
     let toured = false;
@@ -918,12 +1016,19 @@
 
     function setPlayState(state) {
       playBtn.dataset.state = state;
-      playLabel.textContent = { playing: 'Pause', paused: 'Lecture', ended: 'Revoir' }[state];
-      playBtn.setAttribute('aria-label', {
-        playing: 'Mettre la visite automatique en pause',
-        paused: 'Reprendre la visite automatique',
-        ended: 'Revoir la visite depuis le début',
-      }[state]);
+      playLabel.textContent = t(`play.${state}`);
+      playBtn.setAttribute('aria-label', t(`play.${state}.label`));
+    }
+
+    langHooks.push(() => {
+      setPlayState(playBtn.dataset.state);
+      if (chapterOf) chapterName.textContent = t(`chapter.${chapterOf.el.id}`);
+    });
+
+    // Image du film atteinte à une position de scroll donnée
+    function frameAt(y) {
+      const q = clamp((y - story.start) / (story.end - story.start));
+      return Math.ceil(Math.min(q * FRAME_SPEED, 1) * (FRAME_COUNT - 1));
     }
 
     function play(again = true) {
@@ -959,7 +1064,8 @@
         playY = window.scrollY;
       }
       const dt = Math.min(deltaTime, 100);
-      playT += dt / 1000;
+      // connexion lente : la visite attend que le film soit arrivé là où elle va
+      if (filmLoaded >= FRAME_COUNT || frameAt(tourY(playT + 1.5)) < filmLoaded) playT += dt / 1000;
       const y = tourY(playT);
       playY += (y - playY) * (1 - Math.exp(-dt / 450));  // vitesse lissée d'une étape à l'autre
       lenis.scrollTo(playY, { immediate: true, force: true });
@@ -973,7 +1079,7 @@
     // L'utilisateur fait défiler : la visite le laisse faire, puis reprend
     // d'elle-même 5 s après son dernier geste, là où il s'est arrêté
     const takeOver = (e) => {
-      if (e.target instanceof Element && e.target.closest('.autoplay')) return;
+      if (e.target instanceof Element && e.target.closest('.autoplay, .lang')) return;
       if (!playing && !held) return;
       playing = false;
       held = true;
@@ -1011,6 +1117,8 @@
     // Chargement, puis entrée du hero
     const bar = $('#loader-bar');
     const pct = $('#loader-percent');
+    const filmBar = $('.film-progress i');
+    const shownLoad = { v: 0 };
     let revealed = false;
 
     function reveal() {
@@ -1032,15 +1140,31 @@
       play();  // la visite commence par quelques secondes sur le titre
     }
 
-    // Le début du film suffit pour commencer (la visite met une quinzaine de
-    // secondes à l'atteindre) : la suite continue d'arriver en fond, dans l'ordre
-    const READY = 48 / FRAME_COUNT;
+    // Écran d'intro : sa barre mesure le début du film, qui suffit pour commencer
+    // (la visite passe d'abord quelques secondes sur le titre). La suite arrive
+    // en fond, dans l'ordre : un filet doré en haut de la page suit son
+    // chargement, et la visite attend ses images si la connexion est lente.
+    const READY = 24;
+    const showLoad = () => {
+      if (revealed) { onBytes = null; return; }
+      gsap.to(shownLoad, {
+        v: Math.min(1, framesIn / READY),
+        duration: 0.35,
+        ease: 'power2.out',
+        overwrite: true,
+        onUpdate: () => {
+          bar.style.transform = `scaleX(${shownLoad.v.toFixed(3)})`;
+          pct.textContent = String(Math.round(shownLoad.v * 100)).padStart(3, '0');
+        },
+      });
+    };
+    onBytes = showLoad;
     preloadFrames((ratio) => {
-      const r = Math.min(1, ratio / READY);
-      bar.style.transform = `scaleX(${r.toFixed(3)})`;
-      pct.textContent = String(Math.round(r * 100)).padStart(3, '0');
-      if (r >= 1) setTimeout(reveal, 250);
-    }).then(() => setTimeout(reveal, 250));
+      showLoad();
+      filmBar.style.transform = `scaleX(${ratio.toFixed(4)})`;
+      if (ratio >= 1) root.classList.add('film-loaded');
+      if (ratio * FRAME_COUNT >= READY) setTimeout(reveal, 400);
+    }).then(() => setTimeout(reveal, 400));
     setTimeout(reveal, 10000); // ne jamais bloquer
   }
 
