@@ -293,7 +293,8 @@
 
   const canvas = $('#canvas');
   const ctx = canvas.getContext('2d', { alpha: false });
-  const FRAME_W = mobileMQ.matches ? 960 : 1440;
+  const FRAME_W = mobileMQ.matches ? 960 : 1920;
+  const FRAME_RATIO = 1920 / 1076;
   const film = { frame: 0, blend: false, fx: 0.64, sx: 0.5, zoom: 1, sy: 0.5 };
   let cw = 0;
   let ch = 0;
@@ -329,9 +330,13 @@
   const gctx = bg.getContext('2d', { alpha: false });
 
   function sizeCanvas() {
-    // Pas plus de pixels que l'image source n'en contient : rendu plus léger, même
-    // netteté. Sur un grand écran, le navigateur agrandit le canvas lui-même.
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5, FRAME_W / innerWidth);
+    // Assez de pixels pour poser l'image source pixel pour pixel, pas davantage :
+    // rendu plus léger, même netteté. Sur un écran plus grand, le navigateur
+    // agrandit le canvas lui-même.
+    const shown = mobileMQ.matches
+      ? innerWidth  // sur mobile, l'image déborde de l'écran
+      : IMAGE_SCALE * Math.max(innerWidth, innerHeight * FRAME_RATIO);  // largeur de l'image à l'écran
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5, FRAME_W / shown);
     cw = Math.round(innerWidth * dpr);
     ch = Math.round(innerHeight * dpr);
     canvas.width = cw;
