@@ -26,7 +26,7 @@ Puis ouvrir http://localhost:3000 (serve) ou http://localhost:8000 (Python). Une
 
 ## Lecture automatique
 
-À l'arrivée, la page se déroule seule : quelques secondes sur le titre, l'ouverture du film, puis chaque chapitre traversé lentement (6 s de lecture, 9 s pour l'anatomie, 7 s pour les repères), soit environ 1 min 15 en tout. Le bouton de l'en-tête met en pause, relance depuis la position courante, ou rejoue depuis le début une fois la visite terminée. La molette, le doigt, le clavier ou un lien mettent la visite en pause pour rendre la main. Les durées se règlent dans `READ` et `buildTour()` (`main.js`). Pas de lecture automatique en mouvement réduit.
+À l'arrivée, la page se déroule seule : quelques secondes sur le titre, l'ouverture du film, puis chaque chapitre traversé lentement (6 s de lecture, 9 s pour l'anatomie, 7 s pour les repères), soit environ 1 min 15 en tout. Le bouton de l'en-tête met en pause, relance depuis la position courante, ou rejoue depuis le début une fois la visite terminée. La molette, le doigt, le clavier ou un lien laissent la main à l'utilisateur ; la visite reprend d'elle-même 5 s après son dernier geste, sauf s'il l'a mise en pause. Les durées se règlent dans `READ` et `buildTour()` (`main.js`). Pas de lecture automatique en mouvement réduit.
 
 ## Structure du récit
 
@@ -65,7 +65,8 @@ Pour changer de vidéo : remplacer les images en gardant la numérotation, rég�
 
 ## Accessibilité et performance
 
-- Chargement progressif : la vignette des bords et les 12 premières images d'abord, le reste ensuite sur 8 connexions ; l'écran de chargement ne bloque jamais plus de 15 secondes
+- Chargement progressif : la vignette des bords et les 12 premières images d'abord, le reste ensuite sur 8 connexions, dans l'ordre. La page s'ouvre dès que les 48 premières images sont là (le début du film), jamais plus de 10 secondes après l'arrivée ; la suite arrive en fond
+- `index.html` appelle `style.css` et `main.js` avec un numéro de version (`?v=…`) : à changer à chaque mise en ligne pour que les navigateurs ne gardent pas l'ancienne version en cache
 - Les images sont gardées compressées en mémoire et décodées hors du fil principal (`createImageBitmap`) dans une fenêtre glissante autour de la position courante (48 images sur ordinateur, 32 sur mobile, surtout dans le sens du scroll) ; les images qui sortent de la fenêtre sont libérées
 - L'image affichée rattrape la position du scroll en douceur, sans sauter d'image. Quand le film avance de moins d'une image par rafraîchissement (un cran de molette sur ordinateur n'avance que de 4 images), l'image suivante apparaît en transparence, seulement dans la zone qui bouge : le mouvement reste continu. À l'arrêt, le film se pose sur une seule image nette
 - Canvas opaque, jamais plus défini que les images source (pixel ratio 1,5 au plus ; sur un écran plus large que 1440 px, le navigateur l'agrandit lui-même) ; le fond autour de l'image est calculé en basse définition puis agrandi ; rendu seulement quand le scroll bouge
