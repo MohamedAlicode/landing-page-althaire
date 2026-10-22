@@ -830,14 +830,15 @@
     // Clavier : un lien qui reçoit le focus dans une section cachée y amène le scroll
     sections.forEach((s) => {
       s.el.addEventListener('focusin', () => {
-        if (playing) pause();
+        if (playing || held) pause();  // navigation au clavier : la visite s'arrête
         if (!s.active) lenis.scrollTo(targetFor(s.el.id), { immediate: true });
       });
     });
 
     // Lecture automatique : à l'arrivée, la page se déroule seule, chapitre après
-    // chapitre. La molette, le doigt ou le clavier reprennent la main (pause) ;
-    // le bouton de l'en-tête met en pause, relance, ou rejoue depuis le début.
+    // chapitre. La molette, le doigt ou le clavier prennent la main un moment, puis
+    // la visite reprend d'elle-même ; seul le bouton de l'en-tête l'arrête (pause),
+    // la relance, ou la rejoue depuis le début.
     const playBtn = $('.autoplay');
     const playLabel = $('.autoplay__label', playBtn);
     const READ = { anatomie: 9, chiffres: 7 };  // secondes de lecture, 6 par défaut
@@ -845,6 +846,8 @@
     let tourEnd = 0;
     let toured = false;
     let playing = false;
+    let held = false;      // visite suspendue le temps que l'utilisateur fasse défiler
+    let resumeTimer = 0;
     let playT = 0;
     let playY = 0;
 
@@ -852,7 +855,7 @@
     // traversée lentement, avec un court glissé jusqu'à la suivante
     function buildTour() {
       const yAt = (q) => story.start + q * (story.end - story.start);
-      const keys = [[0, 0], [3.5, 0]];
+      const keys = [[0, 0], [2.5, 0]];  // le temps que le titre apparaisse
       const add = (dt, y) => keys.push([keys[keys.length - 1][0] + dt, y]);
       add(5, yAt(sections[0].enter));
       sections.forEach((s, i) => {
@@ -895,10 +898,13 @@
       }[state]);
     }
 
-    function play() {
+    function play(again = true) {
+      held = false;
+      clearTimeout(resumeTimer);
       tour = buildTour();
       let y = window.scrollY;
       if (y >= tour[tour.length - 1][1] - 2) {
+        if (!again) return pause('ended');  // reprise seule après la fin : on ne remonte pas
         y = 0;
         lenis.scrollTo(0, { immediate: true, force: true });
       }
@@ -911,6 +917,8 @@
 
     function pause(state = 'paused') {
       playing = false;
+      held = false;
+      clearTimeout(resumeTimer);
       setPlayState(state);
     }
 
@@ -932,16 +940,24 @@
 
     playBtn.hidden = false;
     setPlayState('paused');
-    playBtn.addEventListener('click', () => (playing ? pause() : play()));
+    playBtn.addEventListener('click', () => (playing || held ? pause() : play()));
 
+    // L'utilisateur fait défiler : la visite le laisse faire, puis reprend
+    // d'elle-même 5 s après son dernier geste, là où il s'est arrêté
     const takeOver = (e) => {
-      if (playing && !(e.target instanceof Element && e.target.closest('.autoplay'))) pause();
+      if (e.target instanceof Element && e.target.closest('.autoplay')) return;
+      if (!playing && !held) return;
+      playing = false;
+      held = true;
+      clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => play(false), 5000);
     };
     window.addEventListener('wheel', takeOver, { passive: true });
     window.addEventListener('touchstart', takeOver, { passive: true });
     window.addEventListener('keydown', takeOver);
     window.addEventListener('pointerdown', (e) => {
-      if (e.target === document.documentElement || e.target.closest('a')) takeOver(e);  // barre de défilement, liens
+      const el = e.target instanceof Element ? e.target : null;
+      if (el && (el === document.documentElement || el.closest('a'))) takeOver(e);  // barre de défilement, liens
     });
 
     // Bouton magnétique
@@ -988,11 +1004,16 @@
       play();  // la visite commence par quelques secondes sur le titre
     }
 
+    // Le début du film suffit pour commencer (la visite met une quinzaine de
+    // secondes à l'atteindre) : la suite continue d'arriver en fond, dans l'ordre
+    const READY = 48 / FRAME_COUNT;
     preloadFrames((ratio) => {
-      bar.style.transform = `scaleX(${ratio.toFixed(3)})`;
-      pct.textContent = String(Math.round(ratio * 100)).padStart(3, '0');
+      const r = Math.min(1, ratio / READY);
+      bar.style.transform = `scaleX(${r.toFixed(3)})`;
+      pct.textContent = String(Math.round(r * 100)).padStart(3, '0');
+      if (r >= 1) setTimeout(reveal, 250);
     }).then(() => setTimeout(reveal, 250));
-    setTimeout(reveal, 15000); // ne jamais bloquer : les images restantes arrivent en fond
+    setTimeout(reveal, 10000); // ne jamais bloquer
   }
 
   /* ------------------------------------------------------------------------
