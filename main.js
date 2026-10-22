@@ -851,7 +851,11 @@
     // la relance, ou la rejoue depuis le début.
     const playBtn = $('.autoplay');
     const playLabel = $('.autoplay__label', playBtn);
-    const READ = { anatomie: 9, chiffres: 7 };  // secondes de lecture, 6 par défaut
+    // Entre deux arrêts, le récit avance de PACE par seconde : le film défile à
+    // environ 31 images par seconde (la vidéo en compte 48), assez vite pour rester
+    // fluide. À chaque arrêt, l'image se pose, nette, le temps de lire.
+    const PACE = 0.055;
+    const HOLD = { anatomie: 1.5, chiffres: 5.5 };  // secondes d'arrêt, 4 par défaut ; anatomie : à chaque pièce
     let tour = [];
     let tourEnd = 0;
     let toured = false;
@@ -861,18 +865,28 @@
     let playT = 0;
     let playY = 0;
 
-    // Étapes [temps, scroll] : le titre, l'ouverture du film, puis chaque section
-    // traversée lentement, avec un court glissé jusqu'à la suivante
+    // Étapes [temps, scroll] : le titre, l'ouverture du film, puis un arrêt par
+    // section (un par pièce pour l'anatomie), reliés à vitesse constante
     function buildTour() {
       const yAt = (q) => story.start + q * (story.end - story.start);
-      const keys = [[0, 0], [2.5, 0]];  // le temps que le titre apparaisse
-      const add = (dt, y) => keys.push([keys[keys.length - 1][0] + dt, y]);
-      add(5, yAt(sections[0].enter));
-      sections.forEach((s, i) => {
-        if (s.persist) return add(2.5, targetFor(s.el.id));
-        add(READ[s.el.id] || 6, yAt(s.leave));
-        const next = sections[i + 1];
-        if (next) add(clamp((next.enter - s.leave) * 60, 0.6, 1.6), yAt(next.enter));
+      const keys = [[0, 0], [2, 0], [5.5, yAt(sections[0].enter)]];  // titre, puis ouverture
+      let q = sections[0].enter;
+      const last = () => keys[keys.length - 1];
+      const moveTo = (to) => {
+        keys.push([last()[0] + Math.max(0.6, (to - q) / PACE), yAt(to)]);
+        q = to;
+      };
+      const hold = (dt) => keys.push([last()[0] + dt, last()[1]]);
+      sections.forEach((s) => {
+        if (s.persist) return moveTo(s.enter + 0.04);
+        const span = s.leave - s.enter;
+        const stops = s.items.length
+          ? s.items.map((_, i) => s.enter + span * (0.14 + i * 0.2))  // juste après l'allumage de chaque pièce
+          : [s.enter + span * 0.4];
+        stops.forEach((at) => {
+          moveTo(at);
+          hold(HOLD[s.el.id] || 4);
+        });
       });
       tourEnd = story.end;
       return keys;
