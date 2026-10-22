@@ -24,6 +24,10 @@ python3 -m http.server 8000
 
 Puis ouvrir http://localhost:3000 (serve) ou http://localhost:8000 (Python). Une connexion internet est nécessaire pour les CDN et Google Fonts.
 
+## Lecture automatique
+
+À l'arrivée, la page se déroule seule : quelques secondes sur le titre, l'ouverture du film, puis chaque chapitre traversé lentement (6 s de lecture, 9 s pour l'anatomie, 7 s pour les repères), soit environ 1 min 15 en tout. Le bouton de l'en-tête met en pause, relance depuis la position courante, ou rejoue depuis le début une fois la visite terminée. La molette, le doigt, le clavier ou un lien mettent la visite en pause pour rendre la main. Les durées se règlent dans `READ` et `buildTour()` (`main.js`). Pas de lecture automatique en mouvement réduit.
+
 ## Structure du récit
 
 | Moment | Chapitre | Film | Mise en page | Entrée |

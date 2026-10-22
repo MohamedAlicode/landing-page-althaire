@@ -830,8 +830,118 @@
     // Clavier : un lien qui reçoit le focus dans une section cachée y amène le scroll
     sections.forEach((s) => {
       s.el.addEventListener('focusin', () => {
+        if (playing) pause();
         if (!s.active) lenis.scrollTo(targetFor(s.el.id), { immediate: true });
       });
+    });
+
+    // Lecture automatique : à l'arrivée, la page se déroule seule, chapitre après
+    // chapitre. La molette, le doigt ou le clavier reprennent la main (pause) ;
+    // le bouton de l'en-tête met en pause, relance, ou rejoue depuis le début.
+    const playBtn = $('.autoplay');
+    const playLabel = $('.autoplay__label', playBtn);
+    const READ = { anatomie: 9, chiffres: 7 };  // secondes de lecture, 6 par défaut
+    let tour = [];
+    let tourEnd = 0;
+    let toured = false;
+    let playing = false;
+    let playT = 0;
+    let playY = 0;
+
+    // Étapes [temps, scroll] : le titre, l'ouverture du film, puis chaque section
+    // traversée lentement, avec un court glissé jusqu'à la suivante
+    function buildTour() {
+      const yAt = (q) => story.start + q * (story.end - story.start);
+      const keys = [[0, 0], [3.5, 0]];
+      const add = (dt, y) => keys.push([keys[keys.length - 1][0] + dt, y]);
+      add(5, yAt(sections[0].enter));
+      sections.forEach((s, i) => {
+        if (s.persist) return add(2.5, targetFor(s.el.id));
+        add(READ[s.el.id] || 6, yAt(s.leave));
+        const next = sections[i + 1];
+        if (next) add(clamp((next.enter - s.leave) * 60, 0.6, 1.6), yAt(next.enter));
+      });
+      tourEnd = story.end;
+      return keys;
+    }
+
+    function tourY(t) {
+      for (let k = 1; k < tour.length; k++) {
+        const [t1, y1] = tour[k];
+        if (t <= t1) {
+          const [t0, y0] = tour[k - 1];
+          return y0 + (y1 - y0) * ((t - t0) / (t1 - t0));
+        }
+      }
+      return tour[tour.length - 1][1];
+    }
+
+    function tourTime(y) {
+      for (let k = 1; k < tour.length; k++) {
+        const [t0, y0] = tour[k - 1];
+        const [t1, y1] = tour[k];
+        if (y1 > y0 && y <= y1) return t0 + (t1 - t0) * clamp((y - y0) / (y1 - y0));
+      }
+      return tour[tour.length - 1][0];
+    }
+
+    function setPlayState(state) {
+      playBtn.dataset.state = state;
+      playLabel.textContent = { playing: 'Pause', paused: 'Lecture', ended: 'Revoir' }[state];
+      playBtn.setAttribute('aria-label', {
+        playing: 'Mettre la visite automatique en pause',
+        paused: 'Reprendre la visite automatique',
+        ended: 'Revoir la visite depuis le début',
+      }[state]);
+    }
+
+    function play() {
+      tour = buildTour();
+      let y = window.scrollY;
+      if (y >= tour[tour.length - 1][1] - 2) {
+        y = 0;
+        lenis.scrollTo(0, { immediate: true, force: true });
+      }
+      playT = toured ? tourTime(y) : 0;
+      toured = true;
+      playY = y;
+      playing = true;
+      setPlayState('playing');
+    }
+
+    function pause(state = 'paused') {
+      playing = false;
+      setPlayState(state);
+    }
+
+    // Avance de la visite, avant le rendu de chaque image
+    gsap.ticker.add((time, deltaTime) => {
+      if (!playing) return;
+      if (tourEnd !== story.end) {  // page redimensionnée : on recale la visite
+        tour = buildTour();
+        playT = tourTime(window.scrollY);
+        playY = window.scrollY;
+      }
+      const dt = Math.min(deltaTime, 100);
+      playT += dt / 1000;
+      const y = tourY(playT);
+      playY += (y - playY) * (1 - Math.exp(-dt / 450));  // vitesse lissée d'une étape à l'autre
+      lenis.scrollTo(playY, { immediate: true, force: true });
+      if (playT >= tour[tour.length - 1][0] && Math.abs(y - playY) < 1) pause('ended');
+    }, false, true);
+
+    playBtn.hidden = false;
+    setPlayState('paused');
+    playBtn.addEventListener('click', () => (playing ? pause() : play()));
+
+    const takeOver = (e) => {
+      if (playing && !(e.target instanceof Element && e.target.closest('.autoplay'))) pause();
+    };
+    window.addEventListener('wheel', takeOver, { passive: true });
+    window.addEventListener('touchstart', takeOver, { passive: true });
+    window.addEventListener('keydown', takeOver);
+    window.addEventListener('pointerdown', (e) => {
+      if (e.target === document.documentElement || e.target.closest('a')) takeOver(e);  // barre de défilement, liens
     });
 
     // Bouton magnétique
@@ -875,6 +985,7 @@
         .from('.aquila', { opacity: 0, duration: 2, ease: 'power1.out' }, 0.9)
         .fromTo('.aquila__lines path', { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 2.2, stagger: 0.15, ease: 'power2.inOut' }, 1)
         .from('.site-header', { opacity: 0, y: -12, duration: 1, ease: 'power2.out' }, 1.2);
+      play();  // la visite commence par quelques secondes sur le titre
     }
 
     preloadFrames((ratio) => {
