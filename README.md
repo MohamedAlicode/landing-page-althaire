@@ -27,7 +27,7 @@ Puis ouvrir http://localhost:3000 (serve) ou http://localhost:8000 (Python). Une
 
 ## Lecture automatique
 
-À l'arrivée, la page se déroule seule : 2 s sur le titre, l'ouverture du film, puis un arrêt par chapitre (4 s ; 5,5 s pour les repères ; un arrêt de 1,5 s par pièce pour l'anatomie), soit un peu plus d'une minute en tout. Entre deux arrêts, le récit avance à vitesse constante (`PACE`) : le film défile à environ 30 images par seconde, ce qui le garde fluide ; à l'arrêt, l'image se pose, nette, le temps de lire. Le bouton de l'en-tête met en pause, relance depuis la position courante, ou rejoue depuis le début une fois la visite terminée. La molette, le doigt, le clavier ou un lien laissent la main à l'utilisateur ; la visite reprend d'elle-même 5 s après son dernier geste, sauf s'il l'a mise en pause. Les durées se règlent dans `PACE`, `HOLD` et `buildTour()` (`main.js`). La visite démarre aussi quand le système demande moins d'animations (réglage « Effets d'animation » de Windows) : le bouton Pause est là pour l'arrêter.
+À l'arrivée, la page se déroule seule : 2 s sur le titre, l'ouverture du film, puis un arrêt par chapitre (4 s ; 5,5 s pour les repères, 7,5 s pour le blason ; un arrêt de 1,5 s par pièce pour l'anatomie), soit environ 1 min 10 en tout. Entre deux arrêts, le récit avance à vitesse constante (`PACE`) : le film défile à environ 30 images par seconde, ce qui le garde fluide ; à l'arrêt, l'image se pose, nette, le temps de lire. Le bouton de l'en-tête met en pause, relance depuis la position courante, ou rejoue depuis le début une fois la visite terminée. La molette, le doigt, le clavier ou un lien laissent la main à l'utilisateur ; la visite reprend d'elle-même 5 s après son dernier geste, sauf s'il l'a mise en pause. Les durées se règlent dans `PACE`, `HOLD` et `buildTour()` (`main.js`). La visite démarre aussi quand le système demande moins d'animations (réglage « Effets d'animation » de Windows) : le bouton Pause est là pour l'arrêter.
 
 ## Structure du récit
 
@@ -39,9 +39,10 @@ Puis ouvrir http://localhost:3000 (serve) ou http://localhost:8000 (Python). Une
 | 21,5–31 % | 003 Le geste | le capot s'envole, le flacon bascule | texte à gauche | rotation |
 | 33–49 % | 004 Anatomie | vue éclatée | texte à droite, liste qui s'allume pièce par pièce | rideau (clip) |
 | 51–65,5 % | 005–007 Notes | calque cognac, marquee géant | gauche / droite / gauche | fondu, zoom, glissé |
-| 67–77 % | 008 Repères | calque nuit étoilée | centré, compteurs | montée en cascade |
-| 79–87 % | 009 Sillage | voile crème | texte à droite | fondu |
-| 89–100 % | 010 Découvrir | vue éclatée | texte à gauche, reste affiché | zoom |
+| 67–75 % | 008 Repères | calque nuit étoilée | centré, compteurs (3 formats, 16,7 a.-l., 12e, 1743) | montée en cascade |
+| 76,5–83,5 % | 009 Le blason | flacon et coffret à découvert, blason visible | texte à gauche : l'histoire de 1743 et des chevaux de Marly | glissé depuis la gauche |
+| 85–90,5 % | 010 Sillage | voile crème | texte à droite | fondu |
+| 92–100 % | 011 Découvrir | vue éclatée | texte à gauche, formats 75 / 125 / 200 ml, reste affiché | zoom |
 
 Le film se termine à 50 % du scroll (`FRAME_SPEED = 2`), le reste du récit joue sur le cadrage et les couleurs.
 
