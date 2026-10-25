@@ -1,5 +1,11 @@
 # Altaïr — landing page scrollytelling (concept)
 
+**[Voir le site en ligne](https://mohamedalicode.github.io/landing-page-althaire/)** · [English version](https://mohamedalicode.github.io/landing-page-althaire/?lang=en)
+
+![Aperçu animé du site : écran d'intro, ouverture du film, l'écrin, l'anatomie du flacon, les notes, les repères, le blason, « Le porter » et les formats](docs/apercu.gif)
+
+*La visite automatique du site, en accéléré (34 s au lieu de 1 min 20).*
+
 Concept de portfolio **non officiel** autour du parfum Altaïr de Parfums de Marly.
 La page est construite autour d'un film produit : la vidéo est découpée en 287 images (48 par seconde), puis rejouée image par image sur un canvas au rythme du scroll. Le coffret s'ouvre, le capot s'envole, le flacon se démonte pièce par pièce pendant que le récit se déroule à côté.
 
@@ -75,6 +81,10 @@ ffmpeg -framerate 48 -i png/f_%04d.png -vf "scale=960:-2:flags=lanczos,cas=stren
 - `frames/edges.png` (73 Ko) : pour chaque image, une vignette de 12 × 27 px dont la première et la dernière colonne et la première et la dernière ligne contiennent la couleur moyenne des bords. Le canvas s'en sert pour prolonger le papier et le sol au-delà de l'image. Elle se régénère à partir des PNG de l'étape 1 (24 vignettes par ligne, bords = moyenne des 18 px extérieurs).
 
 Pour changer de vidéo : remplacer les images en gardant la numérotation, régénérer `edges.png` et `motion.json`, puis ajuster `FRAME_COUNT` dans `main.js`.
+
+## Aperçu animé
+
+`docs/apercu.gif` (960 × 540, 10 images par seconde, 34 s, 7,5 Mo) est la visite automatique enregistrée image par image avec Playwright, l'horloge de la page avançant de 1/10 s entre deux captures : le GIF reste fluide quelle que soit la machine. Pour l'enregistrement, la visite est resserrée (mouvements plus rapides, arrêts de 0,5 à 2,6 s), les étoiles ne scintillent pas, le grain du hero est retiré et les calques cognac et nuit sont pleins : ce sont des aplats que le GIF compresse bien. Encodage : palette commune de 160 couleurs et tramage ordonné (ffmpeg), puis compression gifsicle, avec perte seulement après l'ouverture du film pour garder net le ciel sombre du début.
 
 ## Accessibilité et performance
 
